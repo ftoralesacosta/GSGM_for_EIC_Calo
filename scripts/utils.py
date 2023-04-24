@@ -87,11 +87,7 @@ labels30 = {
 }
 
 labels150 = {
-    'g150.hdf5':0,
-    'q150.hdf5':1,
-    't150.hdf5':2,
-    'w150.hdf5':3,
-    'z150.hdf5':4,
+    'FPCD_17deg.hdf5':0,
 }
 
 nevts = -1
@@ -308,9 +304,9 @@ def SimpleLoader(data_path,labels):
     for label in labels:
         #if 'w' in label or 'z' in label: continue #no evaluation for w and z
         with h5.File(os.path.join(data_path,label),"r") as h5f:
-            ntotal = h5f['jet_features'][:].shape[0]
-            particle = h5f['particle_features'][int(0.7*ntotal):].astype(np.float32)
-            jet = h5f['jet_features'][int(0.7*ntotal):].astype(np.float32)
+            ntotal = h5f['cluster'][:].shape[0]
+            particle = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
+            jet = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
             jet = np.concatenate([jet,labels[label]*np.ones(shape=(jet.shape[0],1),dtype=np.float32)],-1)
 
             particles.append(particle)
@@ -390,17 +386,17 @@ def DataLoader(data_path,labels,
     for label in labels:
         
         with h5.File(os.path.join(data_path,label),"r") as h5f:
-            ntotal = h5f['jet_features'][:].shape[0]
+            ntotal = h5f['cluster'][:].shape[0]
 
             if make_tf_data:
-                particle = h5f['particle_features'][rank:int(0.7*ntotal):size].astype(np.float32)
-                jet = h5f['jet_features'][rank:int(0.7*ntotal):size].astype(np.float32)
+                particle = h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)
+                jet = h5f['cluster'][rank:int(0.7*ntotal):size].astype(np.float32)
                 jet = np.concatenate([jet,labels[label]*np.ones(shape=(jet.shape[0],1),dtype=np.float32)],-1)
             else:
                 #load evaluation data
                 #if 'w' in label or 'z' in label: continue #no evaluation for w and z
-                particle = h5f['particle_features'][int(0.7*ntotal):].astype(np.float32)
-                jet = h5f['jet_features'][int(0.7*ntotal):].astype(np.float32)
+                particle = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
+                jet = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
                 jet = np.concatenate([jet,labels[label]*np.ones(shape=(jet.shape[0],1),dtype=np.float32)],-1)           
 
             particles.append(particle)
