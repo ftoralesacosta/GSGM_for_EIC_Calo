@@ -1,12 +1,12 @@
 # Fast Point Cloud Diffusion (FPCD)
 
-This is the official implementation of the FPCD paper that uses a diffusion model to generate particle jets while [progressive distillation](https://arxiv.org/abs/2202.00512) is used to accelerate the generation.
+This is a fork of the official implementation of the FPCD paper that uses a diffusion model to generate particle jets while [progressive distillation](https://arxiv.org/abs/2202.00512) is used to accelerate the generation. This fork is intended to be used to generate point-cloud calorimeter data. The calorimeter is designed for the upcoming Electron Ion Collider, and more information for this calorimeter can be found [here](https://github.com/eiccodesign/generate_data).
 
 ![Visualization of FPCD](./assets/FPCD.png)
 
 # Training a new model
 
-To train a new model from scratch, first download the data with either [30 particles](https://zenodo.org/record/6975118) or [150 particles](https://zenodo.org/record/6975117).
+To train a new model from scratch, first, obtain data from the [eic/generate_data](https://github.com/eiccodesign/generate_data) repository. Then convert the root file(s) to HDF5 with [this converter](https://github.com/eiccodesign/generate_data/blob/main/to_hdf5/h5_for_FPCD_converter.cc)
 The baseline model can be trained with:
 ```bash
 cd scripts
