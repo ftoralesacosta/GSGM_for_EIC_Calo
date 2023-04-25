@@ -295,7 +295,6 @@ def ReversePrep(particles,jets,npart):
     particles = _revert(particles,'particle')
     jets = _revert(jets,'jet')
     jets[:,3] = np.round(jets[:,3])
-    print(f"\nL298: JET SHAPE = {np.shape(jets)}\n")
     particles[:,2] = 1.0 - particles[:,2]
     return (particles*mask).reshape(jets.shape[0],num_part,-1),jets
 
@@ -343,7 +342,6 @@ def DataLoader(data_path,labels,
         # particles*=np.expand_dims(mask,-1)
 
         particles=particles.reshape(-1,particles.shape[-1]) #flatten
-        print(f"\nNew Cell Array shape = {np.shape(particles)}\n")
 
         def _logit(x):                            
             alpha = 1e-6
@@ -409,8 +407,6 @@ def DataLoader(data_path,labels,
 
     particles = np.concatenate(particles)
     jets = np.concatenate(jets)
-    print(f"L412:\nJET SHAPE = {np.shape(jets)}\n")
-    print(f"cell SHAPE = {np.shape(particles)}\n")
     particles,jets = shuffle(particles,jets, random_state=0)
     
     data_size = jets.shape[0]
