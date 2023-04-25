@@ -86,8 +86,8 @@ labels30 = {
     'z.hdf5':4,
 }
 
-labels150 = {
-    'FPCD_17deg.hdf5':0,
+labels1000 = {
+    'truncated_1000cells_FPCD.hdf5':0,
 }
 
 nevts = -1
@@ -264,9 +264,10 @@ def revert_npart(npart,max_npart):
     #Revert the preprocessing to recover the particle multiplicity
     alpha = 1e-6
     data_dict = LoadJson('preprocessing_{}.json'.format(max_npart))
-    x = npart*data_dict['std_jet'][-1] + data_dict['mean_jet'][-1]
+    # data_dict = LoadJson('preprocessing_calo.json')
+    x = npart*data_dict['std_cluster'][-1] + data_dict['mean_cluster'][-1]
     x = revert_logit(x)
-    x = x * (data_dict['max_jet'][-1]-data_dict['min_jet'][-1]) + data_dict['min_jet'][-1]
+    x = x * (data_dict['max_cluster'][-1]-data_dict['min_cluster'][-1]) + data_dict['min_cluster'][-1]
     #x = np.exp(x)
     return np.round(x).astype(np.int32)
      
@@ -280,6 +281,7 @@ def ReversePrep(particles,jets,npart):
 
     alpha = 1e-6
     data_dict = LoadJson('preprocessing_{}.json'.format(npart))
+    # data_dict = LoadJson('preprocessing_calo.json'.format(npart))
     num_part = particles.shape[1]    
     particles=particles.reshape(-1,particles.shape[-1])
     mask=np.expand_dims(particles[:,2]!=0,-1)
@@ -293,6 +295,7 @@ def ReversePrep(particles,jets,npart):
     particles = _revert(particles,'particle')
     jets = _revert(jets,'jet')
     jets[:,3] = np.round(jets[:,3])
+    print(f"\nL298: JET SHAPE = {np.shape(jets)}\n")
     particles[:,2] = 1.0 - particles[:,2]
     return (particles*mask).reshape(jets.shape[0],num_part,-1),jets
 
@@ -329,16 +332,18 @@ def SimpleLoader(data_path,labels):
 def DataLoader(data_path,labels,
                npart,
                rank=0,size=1,
-               batch_size=64,make_tf_data=True):
+               batch_size=32,make_tf_data=True):
+               # batch_size=64,make_tf_data=True):
     particles = []
     jets = []
 
     def _preprocessing(particles,jets,save_json=False):
         num_part = particles.shape[1]
-        mask = np.sqrt(particles[:,:,0]**2 + particles[:,:,1]**2) < 0.8 #eta looks weird
-        particles*=np.expand_dims(mask,-1)
+        # mask = np.sqrt(particles[:,:,0]**2 + particles[:,:,1]**2) < 0.8 #eta looks weird
+        # particles*=np.expand_dims(mask,-1)
 
         particles=particles.reshape(-1,particles.shape[-1]) #flatten
+        print(f"\nNew Cell Array shape = {np.shape(particles)}\n")
 
         def _logit(x):                            
             alpha = 1e-6
@@ -350,10 +355,10 @@ def DataLoader(data_path,labels,
 
         if save_json:
             data_dict = {
-                'max_jet':np.max(jets[:,:-1],0).tolist(),
-                'min_jet':np.min(jets[:,:-1],0).tolist(),
-                'max_particle':np.max(particles[:,:-1],0).tolist(),
-                'min_particle':np.min(particles[:,:-1],0).tolist(),
+                'max_cluster':np.max(jets[:,:-1],0).tolist(),
+                'min_cluster':np.min(jets[:,:-1],0).tolist(),
+                'max_cell':np.max(particles[:,:-1],0).tolist(),
+                'min_cell':np.min(particles[:,:-1],0).tolist(),
             }                
             
             SaveJson('preprocessing_{}.json'.format(npart),data_dict)
@@ -361,23 +366,23 @@ def DataLoader(data_path,labels,
             data_dict = LoadJson('preprocessing_{}.json'.format(npart))
 
         #normalize
-        jets[:,:-1] = np.ma.divide(jets[:,:-1]-data_dict['min_jet'],np.array(data_dict['max_jet'])- data_dict['min_jet']).filled(0)        
-        particles[:,:-1]= np.ma.divide(particles[:,:-1]-data_dict['min_particle'],np.array(data_dict['max_particle'])- data_dict['min_particle']).filled(0)
+        jets[:,:-1] = np.ma.divide(jets[:,:-1]-data_dict['min_cluster'],np.array(data_dict['max_cluster'])- data_dict['min_cluster']).filled(0)        
+        particles[:,:-1]= np.ma.divide(particles[:,:-1]-data_dict['min_cell'],np.array(data_dict['max_cell'])- data_dict['min_cell']).filled(0)
 
         jets[:,:-1] = _logit(jets[:,:-1])
         particles[:,:-1] = _logit(particles[:,:-1])
         if save_json:
             mask = particles[:,-1]
-            mean_particle = np.average(particles[:,:-1],axis=0,weights=mask)
-            data_dict['mean_jet']=np.mean(jets[:,:-1],0).tolist()
-            data_dict['std_jet']=np.std(jets[:,:-1],0).tolist()
-            data_dict['mean_particle']=mean_particle.tolist()
-            data_dict['std_particle']=np.sqrt(np.average((particles[:,:-1] - mean_particle)**2,axis=0,weights=mask)).tolist()                        
+            mean_cell = np.average(particles[:,:-1],axis=0,weights=mask)
+            data_dict['mean_cluster']=np.mean(jets[:,:-1],0).tolist()
+            data_dict['std_cluster']=np.std(jets[:,:-1],0).tolist()
+            data_dict['mean_cell']=mean_cell.tolist()
+            data_dict['std_cell']=np.sqrt(np.average((particles[:,:-1] - mean_cell)**2,axis=0,weights=mask)).tolist()                        
             SaveJson('preprocessing_{}.json'.format(npart),data_dict)
         
             
-        jets[:,:-1] = np.ma.divide(jets[:,:-1]-data_dict['mean_jet'],data_dict['std_jet']).filled(0)
-        particles[:,:-1]= np.ma.divide(particles[:,:-1]-data_dict['mean_particle'],data_dict['std_particle']).filled(0)
+        jets[:,:-1] = np.ma.divide(jets[:,:-1]-data_dict['mean_cluster'],data_dict['std_cluster']).filled(0)
+        particles[:,:-1]= np.ma.divide(particles[:,:-1]-data_dict['mean_cell'],data_dict['std_cell']).filled(0)
         
         particles = particles.reshape(jets.shape[0],num_part,-1)
         return particles.astype(np.float32),jets.astype(np.float32)
@@ -404,45 +409,47 @@ def DataLoader(data_path,labels,
 
     particles = np.concatenate(particles)
     jets = np.concatenate(jets)
+    print(f"L412:\nJET SHAPE = {np.shape(jets)}\n")
+    print(f"cell SHAPE = {np.shape(particles)}\n")
     particles,jets = shuffle(particles,jets, random_state=0)
     
     data_size = jets.shape[0]
     particles,jets = _preprocessing(particles,jets)    
     
     
-    #if rank==0:print("Training events: {}, Test Events: {} Validation Events: {}".format(train_jets.shape[0],test_jets.shape[0],val_jets.shape[0]))
-    # print(np.max(train_jets,0),np.min(train_jets,0))
-    # print(np.mean(train_jets,0),np.std(train_jets,0))
-    # print(np.sum(train_jets[:,0]>5.)/train_jets.shape[0])
+    #if rank==0:print("Training events: {}, Test Events: {} Validation Events: {}".format(train_clusters.shape[0],test_clusters.shape[0],val_clusters.shape[0]))
+    # print(np.max(train_clusters,0),np.min(train_clusters,0))
+    # print(np.mean(train_clusters,0),np.std(train_clusters,0))
+    # print(np.sum(train_clusters[:,0]>5.)/train_clusters.shape[0])
 
-    # print(np.max(train_particles,0),np.min(train_particles,0))
-    # print(np.sum(train_particles[:,:,0]>6.)/(150*train_jets.shape[0]))
-    # print(np.mean(train_particles,0),np.std(train_particles,0))
-    # print(np.max(test_particles,0),np.min(test_particles,0))
+    # print(np.max(train_cells,0),np.min(train_cells,0))
+    # print(np.sum(train_cells[:,:,0]>6.)/(150*train_clusters.shape[0]))
+    # print(np.mean(train_cells,0),np.std(train_cells,0))
+    # print(np.max(test_cells,0),np.min(test_cells,0))
     # input()
     if make_tf_data:
-        train_particles = particles[:int(0.8*data_size)]
-        train_jets = jets[:int(0.8*data_size)]
+        train_cells = particles[:int(0.8*data_size)]
+        train_clusters = jets[:int(0.8*data_size)]
         
-        test_particles = particles[int(0.8*data_size):]
-        test_jets = jets[int(0.8*data_size):]
+        test_cells = particles[int(0.8*data_size):]
+        test_clusters = jets[int(0.8*data_size):]
         
     
         def _prepare_batches(particles,jets):
             
             nevts = jets.shape[0]
-            tf_jet = tf.data.Dataset.from_tensor_slices(jets[:,:-1])
+            tf_cluster = tf.data.Dataset.from_tensor_slices(jets[:,:-1])
             cond = to_categorical(jets[:,-1], num_classes=num_classes) 
             tf_cond = tf.data.Dataset.from_tensor_slices(cond)
             mask = np.expand_dims(particles[:,:,-1],-1)
             masked = particles[:,:,:-1]*mask
             tf_part = tf.data.Dataset.from_tensor_slices(masked)
             tf_mask = tf.data.Dataset.from_tensor_slices(mask)
-            tf_zip = tf.data.Dataset.zip((tf_part, tf_jet,tf_cond,tf_mask))
+            tf_zip = tf.data.Dataset.zip((tf_part, tf_cluster,tf_cond,tf_mask))
             return tf_zip.shuffle(nevts).repeat().batch(batch_size)
     
-        train_data = _prepare_batches(train_particles,train_jets)
-        test_data  = _prepare_batches(test_particles,test_jets)    
+        train_data = _prepare_batches(train_cells,train_clusters)
+        test_data  = _prepare_batches(test_cells,test_clusters)    
         return data_size, train_data,test_data
     
     else:

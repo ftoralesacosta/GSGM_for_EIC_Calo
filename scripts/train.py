@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument('--config', default='config_jet.json', help='Config file with training parameters')
     parser.add_argument('--data_path', default='/global/cfs/cdirs/m3929/GSGM', help='Path containing the training files')
     parser.add_argument('--distill', action='store_true', default=False,help='Use the distillation model')
-    parser.add_argument('--big', action='store_true', default=False,help='Use bigger dataset (150 particles) as opposed to 30 particles')
+    parser.add_argument('--big', action='store_true', default=False,help='Use bigger dataset (1000 cells) as opposed to 30 particles')
     parser.add_argument('--factor', type=int,default=1, help='Step reduction for distillation model')
 
 
@@ -38,8 +38,8 @@ if __name__ == "__main__":
     assert flags.factor%2==0 or flags.factor==1, "Distillation reduction steps needs to be even"
 
     if flags.big:
-        labels = utils.labels150
-        npart=150
+        labels = utils.labels1000
+        npart=1000
     else:
         labels=utils.labels30
         npart=30
