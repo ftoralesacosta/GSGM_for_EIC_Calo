@@ -319,8 +319,8 @@ def SimpleLoader(data_path,labels):
     particles,jets = shuffle(particles,jets, random_state=0)
     
 
-    mask = np.sqrt(particles[:,:,0]**2 + particles[:,:,1]**2) < 0.8 #eta looks off
-    particles*=np.expand_dims(mask,-1)
+    # mask = np.sqrt(particles[:,:,0]**2 + particles[:,:,1]**2) < 0.8 #eta looks off
+    # particles*=np.expand_dims(mask,-1)
 
     cond = to_categorical(jets[:nevts,-1], num_classes=num_classes)
     mask = np.expand_dims(particles[:nevts,:,-1],-1)
