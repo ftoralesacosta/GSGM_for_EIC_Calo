@@ -78,12 +78,8 @@ name_translate={
 
 names = ['g','q','t','w','z']
 
-labels30 = {
-    'g.hdf5':0,
-    'q.hdf5':1,
-    't.hdf5':2,
-    'w.hdf5':3,
-    'z.hdf5':4,
+labels200 = {
+    'truncated_200cells_FPCD.hdf5':0,
 }
 
 labels1000 = {
@@ -331,8 +327,8 @@ def SimpleLoader(data_path,labels):
 def DataLoader(data_path,labels,
                npart,
                rank=0,size=1,
-               batch_size=32,make_tf_data=True):
-               # batch_size=64,make_tf_data=True):
+               # batch_size=32,make_tf_data=True):
+               batch_size=64,make_tf_data=True):
     particles = []
     jets = []
 

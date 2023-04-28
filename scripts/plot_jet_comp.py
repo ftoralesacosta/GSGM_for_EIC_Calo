@@ -110,8 +110,8 @@ if __name__ == "__main__":
     
     for isamp,sample_name in enumerate(sample_names):
         with h5.File(os.path.join(flags.data_folder,sample_name+'.h5'),"r") as h5f:
-            jets_gen = h5f['jet_features'][:]
-            particles_gen = h5f['particle_features'][:]
+            jets_gen = h5f['cluster_features'][:]
+            particles_gen = h5f['cell_features'][:]
             flavour_gen = jets_gen[:,-1]
             jets_gen = jets_gen[:,:-1]
             
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
         
     for ivar in range(4):
-        config = PlottingConfig('jet',ivar,flags.big,one_class=True)
+        config = PlottingConfig('cluster',ivar,flags.big,one_class=True)
         feed_dict = {}
         for key in jet_dict:
             feed_dict[key] = jet_dict[key][:,ivar]
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
 
     for ivar in range(3):
-        config = PlottingConfig('particle',ivar,flags.big,one_class=True)
+        config = PlottingConfig('cell',ivar,flags.big,one_class=True)
         feed_dict = {}
         for key in part_dict:
             mask = part_dict[key][:,2]>0.

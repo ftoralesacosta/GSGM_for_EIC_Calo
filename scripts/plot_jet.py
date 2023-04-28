@@ -97,7 +97,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', default='GSGM', help='Type of generative model to load')
     parser.add_argument('--distill', action='store_true', default=False,help='Use the distillation model')
     parser.add_argument('--test', action='store_true', default=False,help='Test if inverse transform returns original data')
-    parser.add_argument('--big', action='store_true', default=False,help='Use bigger dataset (150 particles) as opposed to 30 particles')
+    parser.add_argument('--big', action='store_true', default=False,help='Use bigger dataset (1000 cells) as opposed to 500 cells')
     parser.add_argument('--sample', action='store_true', default=False,help='Sample from the generative model')
     parser.add_argument('--comp', action='store_true', default=False, help='Compare the results for diffusion models with different diffusion steps')
     parser.add_argument('--factor', type=int,default=1, help='Step reduction for distillation model')
@@ -107,11 +107,11 @@ if __name__ == "__main__":
     config = utils.LoadJson(flags.config)
 
     if flags.big:
-        labels = utils.labels150
-        npart=150
+        labels = utils.labels1000
+        npart=1000
     else:
-        labels=utils.labels30
-        npart=30
+        labels=utils.labels500
+        npart=500
 
     particles,jets,flavour = utils.DataLoader(flags.data_folder,
                                               labels=labels,
@@ -145,7 +145,7 @@ if __name__ == "__main__":
             particles_gen = []
             jets_gen = []
 
-            nsplit = 20
+            nsplit = 1000 #Number of batches to split the dataset into. See nevts in utils.py
             split_part = np.array_split(jets,nsplit)
             for i,split in enumerate(np.array_split(flavour,nsplit)):
                 #,split_part[i]
@@ -175,56 +175,58 @@ if __name__ == "__main__":
     particles,jets= utils.ReversePrep(particles,jets,npart=npart)
     plot(jets,jets_gen,flavour,flavour,title='jet',
          nplots=4,plot_folder=flags.plot_folder,is_big=flags.big)
+    #flavour is fixed, this should work
     
     print("Calculating metrics")
 
-    with open(sample_name+'.txt','w') as f:
-        for unique in np.unique(np.argmax(flavour,-1)):
-            mask = np.argmax(flavour,-1)== unique
-            print(utils.names[unique])
-            f.write(utils.names[unique])
-            f.write("\n")
-            mean_mass,std_mass = w1m(particles[mask], particles_gen[mask])
-            print("W1M",mean_mass,std_mass)
-            f.write("{:.2f} $\pm$ {:.2f} & ".format(1e3*mean_mass,1e3*std_mass))            
-            mean,std = w1p(particles[mask], particles_gen[mask])
-            print("W1P: ",np.mean(mean),mean,np.mean(std))
-            f.write("{:.2f} $\pm$ {:.2f} & ".format(1e3*np.mean(mean),1e3*np.mean(std)))
-            mean_efp,std_efp = w1efp(particles[mask], particles_gen[mask])
-            print("W1EFP",np.mean(mean_efp),np.mean(std_efp))
-            f.write("{:.2f} $\pm$ {:.2f} & ".format(1e5*np.mean(mean_efp),1e5*np.mean(std_efp)))
-            if flags.big or 'w' in utils.names[unique] or 'z' in utils.names[unique]:
-                #FPND only defined for 30 particles and not calculated for W and Z
-                pass
-            else:
-                fpnd_score = fpnd(particles_gen[mask], jet_type=utils.names[unique])
-                print("FPND", fpnd_score)
-                f.write("{:.2f} & ".format(fpnd_score))
+    #with open(sample_name+'.txt','w') as f:
+    #    for unique in np.unique(np.argmax(flavour,-1)):
+    #        mask = np.argmax(flavour,-1)== unique
+    #        print(utils.names[unique])
+    #        f.write(utils.names[unique])
+    #        f.write("\n")
+    #        mean_mass,std_mass = w1m(particles[mask], particles_gen[mask])
+    #        print("W1M",mean_mass,std_mass)
+    #        f.write("{:.2f} $\pm$ {:.2f} & ".format(1e3*mean_mass,1e3*std_mass))            
+    #        mean,std = w1p(particles[mask], particles_gen[mask])
+    #        print("W1P: ",np.mean(mean),mean,np.mean(std))
+    #        f.write("{:.2f} $\pm$ {:.2f} & ".format(1e3*np.mean(mean),1e3*np.mean(std)))
+    #        mean_efp,std_efp = w1efp(particles[mask], particles_gen[mask])
+    #        print("W1EFP",np.mean(mean_efp),np.mean(std_efp))
+    #        f.write("{:.2f} $\pm$ {:.2f} & ".format(1e5*np.mean(mean_efp),1e5*np.mean(std_efp)))
+    #        if flags.big or 'w' in utils.names[unique] or 'z' in utils.names[unique]:
+    #            #FPND only defined for 30 particles and not calculated for W and Z
+    #            pass
+    #        else:
+    #            fpnd_score = fpnd(particles_gen[mask], jet_type=utils.names[unique])
+    #            print("FPND", fpnd_score)
+    #            f.write("{:.2f} & ".format(fpnd_score))
                 
-            cov,mmd = cov_mmd(particles[mask],particles_gen[mask],num_eval_samples=1000)
-            print("COV,MMD",cov,mmd)
-            f.write("{:.2f} & {:.2f} \\\\".format(cov,mmd))
-            f.write("\n")
+    #        cov,mmd = cov_mmd(particles[mask],particles_gen[mask],num_eval_samples=1000)
+    #        print("COV,MMD",cov,mmd)
+    #        f.write("{:.2f} & {:.2f} \\\\".format(cov,mmd))
+    #        f.write("\n")
             
 
-        for unique in np.unique(np.argmax(flavour,-1)):
-            mask = np.argmax(flavour,-1)== unique
+    #    for unique in np.unique(np.argmax(flavour,-1)):
+    #        mask = np.argmax(flavour,-1)== unique
             
-            print("Jet "+utils.names[unique])
-            f.write("Jet "+utils.names[unique])
-            f.write("\n")
-            for i in range(jets_gen.shape[-1]):
-                mean,std=W1(jets_gen[:,i],jets[:,i])
-                print("W1J {:.2f}: {:.2f}".format(i,mean[0],std[0]))
-                f.write("{:.3f} $\pm$ {:.3f} & ".format(np.mean(mean),np.mean(std)))
-            f.write("\\ \n")
+    #        print("Jet "+utils.names[unique])
+    #        f.write("Jet "+utils.names[unique])
+    #        f.write("\n")
+    #        for i in range(jets_gen.shape[-1]):
+    #            mean,std=W1(jets_gen[:,i],jets[:,i])
+    #            print("W1J {:.2f}: {:.2f}".format(i,mean[0],std[0]))
+    #            f.write("{:.3f} $\pm$ {:.3f} & ".format(np.mean(mean),np.mean(std)))
+    #        f.write("\\ \n")
         
     flavour = np.tile(np.expand_dims(flavour,1),(1,particles_gen.shape[1],1)).reshape((-1,flavour.shape[-1]))
 
+    print(f"\nParticle data shape = {np.shape(particles_gen)}\n")
     particles_gen=particles_gen.reshape((-1,3))
     mask_gen = particles_gen[:,2]>0.
     particles_gen=particles_gen[mask_gen]
-    particles=particles.reshape((-1,3))
+    particles=particles.reshape((1,3))
     mask = particles[:,2]>0.
     particles=particles[mask]
     
@@ -238,5 +240,6 @@ if __name__ == "__main__":
          nplots=3,
          plot_folder=flags.plot_folder,
          is_big=flags.big)
+    #this might fail, bc of flavour conditional
 
 

@@ -269,6 +269,7 @@ class GSGM(keras.Model):
 
 
     def generate(self,cond,jet_info):
+        print("Sampling {} evevts".format(cond.shape[0]))
         start = time.time()
         jet_info = self.DDPMSampler(cond,self.ema_jet,
                                     data_shape=[self.num_jet],
