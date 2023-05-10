@@ -86,7 +86,8 @@ labels1000 = {
     'truncated_1000cells_FPCD.hdf5':0,
 }
 
-nevts = -1
+# nevts = -1
+nevts = 10
 num_classes = 5
 num_classes_eval = 5
 
@@ -114,7 +115,8 @@ def SetStyle():
     
     import matplotlib.pyplot as plt
     import mplhep as hep
-    hep.set_style(hep.style.CMS)
+    # hep.set_style(hep.style.CMS)
+    # mplhep.style.use("CMS")
     hep.style.use("CMS") 
 
 def SetGrid(ratio=True):
@@ -125,7 +127,6 @@ def SetGrid(ratio=True):
     else:
         gs = gridspec.GridSpec(1, 1)
     return fig,gs
-
 
 
         
@@ -218,6 +219,9 @@ def HistRoutine(feed_dict,
     maxy = np.max(reference_hist)
     
     for ip,plot in enumerate(feed_dict.keys()):
+        print(f"Plot val = {plot}")
+        print(f"Color = {colors[plot]}")
+        print(f"Shape of feed = {np.shape(feed_dict[plot])}\n")
         dist,_,_=ax0.hist(feed_dict[plot],bins=binning,label=name_translate[plot],linestyle=line_style[plot],color=colors[plot],density=True,histtype="step")
         if plot_ratio:
             if reference_name!=plot:
@@ -281,18 +285,20 @@ def ReversePrep(particles,jets,npart):
     num_part = particles.shape[1]    
     particles=particles.reshape(-1,particles.shape[-1])
     mask=np.expand_dims(particles[:,2]!=0,-1)
-    def _revert(x,name='jet'):    
+    def _revert(x,name='cluster'):    
         x = x*data_dict['std_{}'.format(name)] + data_dict['mean_{}'.format(name)]
         x = revert_logit(x)
         #print(data_dict['max_{}'.format(name)],data_dict['min_{}'.format(name)])
         x = x * (np.array(data_dict['max_{}'.format(name)]) -data_dict['min_{}'.format(name)]) + data_dict['min_{}'.format(name)]
         return x
         
-    particles = _revert(particles,'particle')
-    jets = _revert(jets,'jet')
-    jets[:,3] = np.round(jets[:,3])
-    particles[:,2] = 1.0 - particles[:,2]
-    return (particles*mask).reshape(jets.shape[0],num_part,-1),jets
+    particles = _revert(particles,'cell')
+    jets = _revert(jets,'cluster')
+    jets[:,3] = np.round(jets[:,3]) #number of constituents
+
+    return particles.reshape(jets.shape[0],num_part,-1),jets
+    # return (particles*mask).reshape(jets.shape[0],num_part,-1),jets
+    # particles[:,2] = 1.0 - particles[:,2]
 
 
 def SimpleLoader(data_path,labels):
@@ -318,17 +324,19 @@ def SimpleLoader(data_path,labels):
     # mask = np.sqrt(particles[:,:,0]**2 + particles[:,:,1]**2) < 0.8 #eta looks off
     # particles*=np.expand_dims(mask,-1)
 
+    #FIXME: Want to condition the model on input genP data
     cond = to_categorical(jets[:nevts,-1], num_classes=num_classes)
     mask = np.expand_dims(particles[:nevts,:,-1],-1)
     
-    return particles[:nevts,:,:-1]*mask,jets[:nevts,:-1],cond
+    return particles[:nevts,:,:-1],jets[:nevts,:-1],cond
+    # return particles[:nevts,:,:-1]*mask,jets[:nevts,:-1],cond
 
     
 def DataLoader(data_path,labels,
                npart,
                rank=0,size=1,
-               # batch_size=32,make_tf_data=True):
                batch_size=64,make_tf_data=True):
+               # batch_size=1,make_tf_data=True):
     particles = []
     jets = []
 
@@ -345,7 +353,7 @@ def DataLoader(data_path,labels,
             return np.ma.log(x/(1-x)).filled(0)
 
         #Transformations
-        particles[:,2] = 1.0 - particles[:,2]
+        # particles[:,2] = 1.0 - particles[:,2]
 
         if save_json:
             data_dict = {
@@ -402,6 +410,7 @@ def DataLoader(data_path,labels,
             jets.append(jet)
 
     particles = np.concatenate(particles)
+    # print("Particles = ",particles)
     jets = np.concatenate(jets)
     particles,jets = shuffle(particles,jets, random_state=0)
     
@@ -409,7 +418,7 @@ def DataLoader(data_path,labels,
     particles,jets = _preprocessing(particles,jets)    
     
     
-    #if rank==0:print("Training events: {}, Test Events: {} Validation Events: {}".format(train_clusters.shape[0],test_clusters.shape[0],val_clusters.shape[0]))
+    # if rank==0:print("Training events: {}, Test Events: {} Validation Events: {}".format(train_clusters.shape[0],test_clusters.shape[0],val_clusters.shape[0]))
     # print(np.max(train_clusters,0),np.min(train_clusters,0))
     # print(np.mean(train_clusters,0),np.std(train_clusters,0))
     # print(np.sum(train_clusters[:,0]>5.)/train_clusters.shape[0])
@@ -418,7 +427,7 @@ def DataLoader(data_path,labels,
     # print(np.sum(train_cells[:,:,0]>6.)/(150*train_clusters.shape[0]))
     # print(np.mean(train_cells,0),np.std(train_cells,0))
     # print(np.max(test_cells,0),np.min(test_cells,0))
-    # input()
+     # input()
     if make_tf_data:
         train_cells = particles[:int(0.8*data_size)]
         train_clusters = jets[:int(0.8*data_size)]
@@ -441,6 +450,7 @@ def DataLoader(data_path,labels,
             return tf_zip.shuffle(nevts).repeat().batch(batch_size)
     
         train_data = _prepare_batches(train_cells,train_clusters)
+        print("train_cells = ",train_cells)
         test_data  = _prepare_batches(test_cells,test_clusters)    
         return data_size, train_data,test_data
     

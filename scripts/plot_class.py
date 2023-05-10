@@ -56,17 +56,17 @@ class PlottingConfig():
     def get_logy(self):
         if self.name == 'jet':
             binning_dict = {
-                0 : True,
+                0 : False,
                 1 : False,
                 2 : False,
-                3 : True,                
+                3 : False,                
             }
 
         else:
             binning_dict = {
                 0 : False,
                 1 : False,
-                2 : True,
+                2 : False,
             }
             
         return binning_dict[self.idx]

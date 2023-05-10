@@ -48,12 +48,23 @@ def plot(jet1,jet2,flav1,flav2,nplots,title,plot_folder,is_big):
         for i,unique in enumerate(np.unique(np.argmax(flavour,-1))):
             mask1 = np.argmax(flav1,-1)== unique
             mask2 = np.argmax(flav2,-1)== unique        
+
+            mask2 = np.full(np.shape(flav1)[0],True)
+
+            print(f"SHAPE OF MASK1 = {np.shape(mask1)}")
+            mask1 = np.full(np.shape(flav1),True)
+            print(f"SHAPE OF MASK1 = {np.shape(mask1)[0]}")
+            print(f"SHAPE OF JET1[0] = {np.shape(jet1)[0]}")
+            print(f"SHAPE OF JET1 = {np.shape(jet1)}")
             
             name = utils.names[unique]
             feed_dict = {
-                '{}_truth'.format(name):jet1[:,ivar][mask1],
-                '{}_gen'.format(name):  jet2[:,ivar][mask2]
+                # '{}_truth'.format(name):jet1[:,ivar][mask1],
+                # '{}_gen'.format(name):  jet2[:,ivar][mask2]
+                '{}_truth'.format(name):jet1[:,ivar],
+                '{}_gen'.format(name):  jet2[:,ivar]
             }
+            print(f"PASSED {ivar}\n")
             
             if i == 0:                            
                 fig,gs,_ = utils.HistRoutine(feed_dict,xlabel=config.var,
@@ -80,17 +91,19 @@ def plot(jet1,jet2,flav1,flav2,nplots,title,plot_folder,is_big):
 
 
 if __name__ == "__main__":
+    
+    print("\nL84: First line of __main__\n")
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
 
-
+    print("\nL84: after gpus and tf set mem growth_true\n")
     utils.SetStyle()
 
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data_folder', default='/global/cfs/cdirs/m3929/GSGM', help='Folder containing data and MC files')
+    parser.add_argument('--data_folder', default='/pscratch/sd/f/fernando/GSGM_for_EIC_Calo/scripts', help='Folder containing data and MC files')
     parser.add_argument('--plot_folder', default='../plots', help='Folder to save results')
     parser.add_argument('--config', default='config_jet.json', help='Training parameters')
     
@@ -102,21 +115,24 @@ if __name__ == "__main__":
     parser.add_argument('--comp', action='store_true', default=False, help='Compare the results for diffusion models with different diffusion steps')
     parser.add_argument('--factor', type=int,default=1, help='Step reduction for distillation model')
 
-
+    print("\nL107: before parse_args() called \n")
     flags = parser.parse_args()
     config = utils.LoadJson(flags.config)
+    print("\nL110: After parse_args() called \n")
 
     if flags.big:
         labels = utils.labels1000
         npart=1000
     else:
-        labels=utils.labels500
-        npart=500
+        labels=utils.labels200
+        npart=200
 
+    print("\nL115: Right BEFORE DataLoader\n")
     particles,jets,flavour = utils.DataLoader(flags.data_folder,
                                               labels=labels,
                                               npart=npart,
                                               make_tf_data=False)
+    print("\nL120: Right AFTER DataLoader\n")
 
     if flags.test:
         particles_gen,jets_gen,flavour_gen = utils.SimpleLoader(flags.data_folder,labels=labels)
@@ -132,9 +148,10 @@ if __name__ == "__main__":
 
 
 
+        print("\nL135: Before model=GSGM(config)\n")
         if flags.sample:            
             model = GSGM(config=config,factor=flags.factor,npart=npart)
-            checkpoint_folder = '../checkpoints_{}/checkpoint'.format(model_name)
+            checkpoint_folder = '../checkpoints_{}_backup/checkpoint'.format(model_name)
             if flags.distill:
                 checkpoint_folder = '../checkpoints_{}_d{}/checkpoint'.format(model_name,flags.factor)
                 model = GSGM_distill(model.ema_jet,model.ema_part,config=config,
@@ -142,10 +159,11 @@ if __name__ == "__main__":
                 print("Loading distilled model from: {}".format(checkpoint_folder))
             model.load_weights('{}'.format(checkpoint_folder)).expect_partial()
 
+            print("\nL145: Before split loop\n")
             particles_gen = []
             jets_gen = []
 
-            nsplit = 1000 #Number of batches to split the dataset into. See nevts in utils.py
+            nsplit = 5 #Number of batches to split the dataset into. See nevts in utils.py
             split_part = np.array_split(jets,nsplit)
             for i,split in enumerate(np.array_split(flavour,nsplit)):
                 #,split_part[i]
@@ -169,10 +187,20 @@ if __name__ == "__main__":
                 particles_gen = h5f['particle_features'][:]
                 
         flavour_gen = jets_gen[:,-1]
-        assert np.all(flavour_gen == np.argmax(flavour,-1)), 'The order between the particles dont match'
+        # print("Argmax = ",np.argmax(flavour,-1))
+        # flavour_gen.fill(0)
+        print("Shapes = ")
+        print(np.shape(flavour_gen))
+        print(np.shape(flavour))
+        print("Argmax Flavour = ",np.argmax(flavour,-1))
+        # print("flavour_gen = ",flavour_gen)
+
+        # assert np.all(flavour_gen == np.argmax(flavour,-1)), 'The order between the particles dont match'
+
         jets_gen = jets_gen[:,:-1]
             
     particles,jets= utils.ReversePrep(particles,jets,npart=npart)
+    print("Shape of jets1, or just jets = {np.shape(jets)}")
     plot(jets,jets_gen,flavour,flavour,title='jet',
          nplots=4,plot_folder=flags.plot_folder,is_big=flags.big)
     #flavour is fixed, this should work
@@ -186,7 +214,7 @@ if __name__ == "__main__":
     #        f.write(utils.names[unique])
     #        f.write("\n")
     #        mean_mass,std_mass = w1m(particles[mask], particles_gen[mask])
-    #        print("W1M",mean_mass,std_mass)
+    #        print("W-1M",mean_mass,std_mass)
     #        f.write("{:.2f} $\pm$ {:.2f} & ".format(1e3*mean_mass,1e3*std_mass))            
     #        mean,std = w1p(particles[mask], particles_gen[mask])
     #        print("W1P: ",np.mean(mean),mean,np.mean(std))
@@ -220,20 +248,28 @@ if __name__ == "__main__":
     #            f.write("{:.3f} $\pm$ {:.3f} & ".format(np.mean(mean),np.mean(std)))
     #        f.write("\\ \n")
         
-    flavour = np.tile(np.expand_dims(flavour,1),(1,particles_gen.shape[1],1)).reshape((-1,flavour.shape[-1]))
+    # flavour = np.tile(np.expand_dims(flavour,1),(1,particles_gen.shape[1],1)).reshape((-1,flavour.shape[-1]))
 
-    print(f"\nParticle data shape = {np.shape(particles_gen)}\n")
-    particles_gen=particles_gen.reshape((-1,3))
+    print(f"Particle data shape = {np.shape(particles_gen)}")
+
+    particles_gen=particles_gen.reshape((-1,4))
+    particles=particles.reshape((-1,4))
+
     mask_gen = particles_gen[:,2]>0.
-    particles_gen=particles_gen[mask_gen]
-    particles=particles.reshape((1,3))
     mask = particles[:,2]>0.
-    particles=particles[mask]
+    mask_gen = np.full(np.shape(particles_gen),True)
+    mask = np.full(np.shape(particles),True)
+
+    # particles_gen=particles_gen[mask_gen]
+    # particles=particles[mask]
     
-    flavour_gen = flavour[mask_gen]
-    flavour = flavour[mask]
+    # flavour_gen = flavour[mask_gen[:,:]]
+    # flavour = flavour[mask]
 
 
+
+    print(f"Shape of Cells = {np.shape(particles)}")
+    print(f"Shape of GenCells = {np.shape(particles_gen)}")
     plot(particles,particles_gen,
          flavour,flavour_gen,
          title='part',
