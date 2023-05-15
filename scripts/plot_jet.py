@@ -132,6 +132,9 @@ if __name__ == "__main__":
                                               labels=labels,
                                               npart=npart,
                                               make_tf_data=False)
+
+    # particles,jets,flavour = utils.SimpleLoader(flags.data_folder,
+    #                                           labels=labels)
     print("\nL120: Right AFTER DataLoader\n")
 
     if flags.test:
@@ -151,7 +154,7 @@ if __name__ == "__main__":
         print("\nL135: Before model=GSGM(config)\n")
         if flags.sample:            
             model = GSGM(config=config,factor=flags.factor,npart=npart)
-            checkpoint_folder = '../checkpoints_{}_backup/checkpoint'.format(model_name)
+            checkpoint_folder = '../checkpoints_{}/checkpoint'.format(model_name)
             if flags.distill:
                 checkpoint_folder = '../checkpoints_{}_d{}/checkpoint'.format(model_name,flags.factor)
                 model = GSGM_distill(model.ema_jet,model.ema_part,config=config,
@@ -273,7 +276,7 @@ if __name__ == "__main__":
     plot(particles,particles_gen,
          flavour,flavour_gen,
          title='part',
-         nplots=3,
+         nplots=4,#EXYZ
          plot_folder=flags.plot_folder,
          is_big=flags.big)
     #this might fail, bc of flavour conditional

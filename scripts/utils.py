@@ -310,6 +310,7 @@ def SimpleLoader(data_path,labels):
         with h5.File(os.path.join(data_path,label),"r") as h5f:
             ntotal = h5f['cluster'][:].shape[0]
             particle = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
+            print(f"SimpleLoader File {label}, Particle = ",particle)
             jet = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
             jet = np.concatenate([jet,labels[label]*np.ones(shape=(jet.shape[0],1),dtype=np.float32)],-1)
 
@@ -397,6 +398,7 @@ def DataLoader(data_path,labels,
 
             if make_tf_data:
                 particle = h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)
+                print("Particle from H5 = ",particle)
                 jet = h5f['cluster'][rank:int(0.7*ntotal):size].astype(np.float32)
                 jet = np.concatenate([jet,labels[label]*np.ones(shape=(jet.shape[0],1),dtype=np.float32)],-1)
             else:
@@ -410,12 +412,13 @@ def DataLoader(data_path,labels,
             jets.append(jet)
 
     particles = np.concatenate(particles)
-    # print("Particles = ",particles)
     jets = np.concatenate(jets)
     particles,jets = shuffle(particles,jets, random_state=0)
     
     data_size = jets.shape[0]
+    print("Particles = ",particles[:10])
     particles,jets = _preprocessing(particles,jets)    
+    print("PreProcessed Particles = ",particles[:10])
     
     
     # if rank==0:print("Training events: {}, Test Events: {} Validation Events: {}".format(train_clusters.shape[0],test_clusters.shape[0],val_clusters.shape[0]))
