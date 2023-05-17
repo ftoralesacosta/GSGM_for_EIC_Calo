@@ -87,7 +87,8 @@ labels1000 = {
 }
 
 # nevts = -1
-nevts = 10
+# nevts = 10
+nevts = 100
 num_classes = 5
 num_classes_eval = 5
 
@@ -150,8 +151,8 @@ def PlotRoutine(feed_dict,xlabel='',ylabel='',reference_name='gen'):
                 ax1.plot(ratio,color=colors[plot],markeredgewidth=1,marker=line_style[plot],lw=0)
             else:
                 ax1.plot(ratio,color=colors[plot],linewidth=2,linestyle=line_style[plot])
-                
-        
+
+
     FormatFig(xlabel = "", ylabel = ylabel,ax0=ax0)
     ax0.legend(loc='best',fontsize=16,ncol=1)
 
@@ -177,7 +178,7 @@ def FormatFig(xlabel,ylabel,ax0):
     # plt.yticks(y_loc, y_update) 
     ax0.set_xlabel(xlabel,fontsize=20)
     ax0.set_ylabel(ylabel)
-        
+
 
     # xposition = 0.9
     # yposition=1.03
@@ -209,15 +210,15 @@ def HistRoutine(feed_dict,
     if plot_ratio:
         plt.xticks(fontsize=0)
         ax1 = plt.subplot(gs[1],sharex=ax0)
-        
-    
+
+
     if binning is None:
         binning = np.linspace(np.quantile(feed_dict[reference_name],0.0),np.quantile(feed_dict[reference_name],1),20)
-        
+
     xaxis = [(binning[i] + binning[i+1])/2.0 for i in range(len(binning)-1)]
     reference_hist,_ = np.histogram(feed_dict[reference_name],bins=binning,density=True)
     maxy = np.max(reference_hist)
-    
+
     for ip,plot in enumerate(feed_dict.keys()):
         print(f"Plot val = {plot}")
         print(f"Color = {colors[plot]}")
@@ -227,7 +228,7 @@ def HistRoutine(feed_dict,
             if reference_name!=plot:
                 ratio = 100*np.divide(reference_hist-dist,reference_hist)
                 ax1.plot(xaxis,ratio,color=colors[plot],marker='o',ms=10,lw=0,markerfacecolor='none',markeredgewidth=3)
-        
+
     ax0.legend(loc=label_loc,fontsize=12,ncol=5)
 
     if logy:
@@ -245,7 +246,7 @@ def HistRoutine(feed_dict,
         plt.ylim([-100,100])
     else:
         FormatFig(xlabel = xlabel, ylabel = ylabel,ax0=ax0)
-    
+
     return fig,gs, binning
 
 
@@ -270,7 +271,7 @@ def revert_npart(npart,max_npart):
     x = x * (data_dict['max_cluster'][-1]-data_dict['min_cluster'][-1]) + data_dict['min_cluster'][-1]
     #x = np.exp(x)
     return np.round(x).astype(np.int32)
-     
+
 def revert_logit(x):
     alpha = 1e-6
     exp = np.exp(x)
@@ -283,8 +284,11 @@ def ReversePrep(particles,jets,npart):
     data_dict = LoadJson('preprocessing_{}.json'.format(npart))
     # data_dict = LoadJson('preprocessing_calo.json'.format(npart))
     num_part = particles.shape[1]    
+    print(f"UTILS L: 287 Shape = {np.shape(particles)}")
     particles=particles.reshape(-1,particles.shape[-1])
-    mask=np.expand_dims(particles[:,2]!=0,-1)
+    print(f"UTILS L: 289 Shape = {np.shape(particles)}")
+    # mask=np.expand_dims(particles[:,2]!=0,-1)
+    mask=np.expand_dims(particles[:,3]!=0,-1)
     def _revert(x,name='cluster'):    
         x = x*data_dict['std_{}'.format(name)] + data_dict['mean_{}'.format(name)]
         x = revert_logit(x)
@@ -296,7 +300,7 @@ def ReversePrep(particles,jets,npart):
     jets = _revert(jets,'cluster')
     jets[:,3] = np.round(jets[:,3]) #number of constituents
 
-    return particles.reshape(jets.shape[0],num_part,-1),jets
+    return (particles*mask).reshape(jets.shape[0],num_part,-1),jets
     # return (particles*mask).reshape(jets.shape[0],num_part,-1),jets
     # particles[:,2] = 1.0 - particles[:,2]
 

@@ -166,7 +166,7 @@ if __name__ == "__main__":
             particles_gen = []
             jets_gen = []
 
-            nsplit = 5 #Number of batches to split the dataset into. See nevts in utils.py
+            nsplit = 10 #Number of batches to split the dataset into. See nevts in utils.py
             split_part = np.array_split(jets,nsplit)
             for i,split in enumerate(np.array_split(flavour,nsplit)):
                 #,split_part[i]
@@ -253,18 +253,30 @@ if __name__ == "__main__":
         
     # flavour = np.tile(np.expand_dims(flavour,1),(1,particles_gen.shape[1],1)).reshape((-1,flavour.shape[-1]))
 
-    print(f"Particle data shape = {np.shape(particles_gen)}")
+    print(f"Particle data shape = {np.shape(particles)}")
+    print(f"Gen Particle data shape = {np.shape(particles_gen)}\n")
 
-    particles_gen=particles_gen.reshape((-1,4))
-    particles=particles.reshape((-1,4))
+    print(f"Particle data = {particles[10,:10,:]}")
+    particles=particles.reshape((-1,5))
+    particles_gen=particles_gen.reshape((-1,5))
 
-    mask_gen = particles_gen[:,2]>0.
-    mask = particles[:,2]>0.
-    mask_gen = np.full(np.shape(particles_gen),True)
-    mask = np.full(np.shape(particles),True)
+    print(f"Particle data shape = {np.shape(particles)}")
+    print(f"Gen Particle data shape = {np.shape(particles_gen)}\n")
 
-    # particles_gen=particles_gen[mask_gen]
-    # particles=particles[mask]
+    mask = particles[:,-1]>0.
+    mask_gen = particles_gen[:,-1]>0.
+
+    print(f"Particle MASK shape = {np.shape(mask)}")
+    print(f"gen Particle MASK shape = {np.shape(mask_gen)}\n")
+
+    # mask_gen = np.full(np.shape(particles_gen),True)
+    # mask = np.full(np.shape(particles),True)
+
+    particles_gen=particles_gen[mask_gen]
+    particles=particles[mask]
+
+    print(f"Particle data shape = {np.shape(particles)}")
+    print(f"Gen Particle data shape = {np.shape(particles_gen)}\n")
     
     # flavour_gen = flavour[mask_gen[:,:]]
     # flavour = flavour[mask]
