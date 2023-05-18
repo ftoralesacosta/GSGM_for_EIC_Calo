@@ -25,10 +25,10 @@ if __name__ == "__main__":
 
 
     parser = argparse.ArgumentParser()    
-    parser.add_argument('--config', default='config_jet.json', help='Config file with training parameters')
-    parser.add_argument('--data_path', default='/global/cfs/cdirs/m3929/GSGM', help='Path containing the training files')
+    parser.add_argument('--config', default='config_cluster.json', help='Config file with training parameters')
+    parser.add_argument('--data_path', default='/pscratch/sd/f/fernando/GSGM_for_EIC_Calo/scripts', help='Path containing the training files')
     parser.add_argument('--distill', action='store_true', default=False,help='Use the distillation model')
-    parser.add_argument('--big', action='store_true', default=False,help='Use bigger dataset (150 particles) as opposed to 30 particles')
+    parser.add_argument('--big', action='store_true', default=False,help='Use bigger dataset (1000 particles) as opposed to 200 particles')
     parser.add_argument('--factor', type=int,default=1, help='Step reduction for distillation model')
 
 
@@ -38,11 +38,11 @@ if __name__ == "__main__":
     assert flags.factor%2==0 or flags.factor==1, "Distillation reduction steps needs to be even"
 
     if flags.big:
-        labels = utils.labels150
-        npart=150
+        labels = utils.labels1000
+        npart=1000
     else:
-        labels=utils.labels30
-        npart=30
+        labels=utils.labels200
+        npart=200
     
     data_size,training_data,test_data = utils.DataLoader(flags.data_path,
                                                          labels,
@@ -55,10 +55,10 @@ if __name__ == "__main__":
     model_name = config['MODEL_NAME']
     if flags.big:
         model_name+='_big'
-    checkpoint_folder = '../checkpoints_{}/checkpoint'.format(model_name)
+    checkpoint_folder = '../checkpoints_{}/checkpoint_wNorm'.format(model_name)
     if flags.distill:
         if flags.factor>2:
-            checkpoint_folder = '../checkpoints_{}_d{}/checkpoint'.format(model_name,flags.factor//2)
+            checkpoint_folder = '../checkpoints_{}_d{}/checkpoint_wNorm'.format(model_name,flags.factor//2)
             model = GSGM_distill(model.ema_jet,model.ema_part,factor=flags.factor//2,config=config)
             model.load_weights('{}'.format(checkpoint_folder)).expect_partial()
             #previous student, now teacher
