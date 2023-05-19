@@ -1,7 +1,7 @@
 {
-    'NUM_FEAT':5,
-    'NUM_JET':4,
-    'NUM_COND':5,
+    'NUM_FEAT':4,
+    'NUM_JET':2,
+    'NUM_COND':2,
     'BATCH':128,
     'LR':0.0001,
     'MAXEPOCH':250,

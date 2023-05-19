@@ -34,6 +34,7 @@ if __name__ == "__main__":
 
     flags = parser.parse_args()
     config = utils.LoadJson(flags.config)
+    print("\n\nL 37: Configuration:" ,config)
 
     assert flags.factor%2==0 or flags.factor==1, "Distillation reduction steps needs to be even"
 
@@ -55,10 +56,10 @@ if __name__ == "__main__":
     model_name = config['MODEL_NAME']
     if flags.big:
         model_name+='_big'
-    checkpoint_folder = '../checkpoints_{}/checkpoint_wNorm'.format(model_name)
+    checkpoint_folder = '../checkpoints_{}/checkpoint'.format(model_name)
     if flags.distill:
         if flags.factor>2:
-            checkpoint_folder = '../checkpoints_{}_d{}/checkpoint_wNorm'.format(model_name,flags.factor//2)
+            checkpoint_folder = '../checkpoints_{}_d{}/checkpoint'.format(model_name,flags.factor//2)
             model = GSGM_distill(model.ema_jet,model.ema_part,factor=flags.factor//2,config=config)
             model.load_weights('{}'.format(checkpoint_folder)).expect_partial()
             #previous student, now teacher

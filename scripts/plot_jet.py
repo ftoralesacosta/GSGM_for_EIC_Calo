@@ -145,9 +145,10 @@ if __name__ == "__main__":
             cells_gen = []
             clusters_gen = []
 
-            nsplit = 20
+            nsplit = 1 #number of batches, in which to split nevts in utils.py
             split_part = np.array_split(clusters,nsplit)
             for i,split in enumerate(np.array_split(flavour,nsplit)):
+                print("\n\nSPLITE SHAPE = ",split.shape[0])
                 #,split_part[i]
                 # genP as input to model.genearet()
                 p,j = model.generate(split,split_part[i])
@@ -158,7 +159,7 @@ if __name__ == "__main__":
             clusters_gen = np.concatenate(clusters_gen)
             
             cells_gen,clusters_gen= utils.ReversePrep(cells_gen,clusters_gen,npart=npart)
-            clusters_gen = np.concatenate([clusters_gen,np.expand_dims(np.argmax(flavour,-1),-1)],-1)
+            # clusters_gen = np.concatenate([clusters_gen,np.expand_dims(np.argmax(flavour,-1),-1)],-1)
 
             with h5.File(os.path.join(flags.data_folder,sample_name+'.h5'),"w") as h5f:
                 dset = h5f.create_dataset("particle_features", data=cells_gen)

@@ -87,6 +87,7 @@ labels1000 = {
 }
 
 nevts = -1
+# nevts = 1_0
 num_classes = 5
 num_classes_eval = 5
 
@@ -279,7 +280,7 @@ def ReversePrep(cells,clusters,npart):
     data_dict = LoadJson('preprocessing_{}.json'.format(npart))
     num_part = cells.shape[1]    
     cells=cells.reshape(-1,cells.shape[-1])
-    print(f"\nArray shape = {np.shape(cells)}\n")
+    print(f"\nCells shape = {np.shape(cells)}\n")
     
     mask=np.expand_dims(cells[:,2]!=0,-1)
     def _revert(x,name='cluster'):    
@@ -291,8 +292,7 @@ def ReversePrep(cells,clusters,npart):
         
     cells = _revert(cells,'cell')
     clusters = _revert(clusters,'cluster')
-    clusters[:,3] = np.round(clusters[:,3])
-    cells[:,2] = 1.0 - cells[:,2]
+    clusters[:,-1] = np.round(clusters[:,-1]) #num cells
     return (cells*mask).reshape(clusters.shape[0],num_part,-1),clusters
 
 
@@ -319,10 +319,10 @@ def SimpleLoader(data_path,labels):
     # mask = np.sqrt(cells[:,:,0]**2 + cells[:,:,1]**2) < 0.8 #eta looks off
     # cells*=np.expand_dims(mask,-1)
 
-    cond = to_categorical(clusters[:nevts,-1], num_classes=num_classes)
+    # cond = to_categorical(clusters[:nevts,-1], num_classes=num_classes)
     mask = np.expand_dims(cells[:nevts,:,-1],-1)
 
-    return cells[:nevts,:,:-1]*mask,clusters[:nevts,:-1],cond
+    return cells[:nevts,:,:-1]*mask,clusters[:nevts],cond
 
 
 def DataLoader(data_path,labels,
@@ -336,7 +336,6 @@ def DataLoader(data_path,labels,
         num_part = cells.shape[1]
         #eta cut removed here
         cells=cells.reshape(-1,cells.shape[-1]) #flatten
-        print(f"\nNew Cell Array shape = {np.shape(cells)}\n")
 
         def _logit(x):                            
             alpha = 1e-6
@@ -347,10 +346,10 @@ def DataLoader(data_path,labels,
 
         if save_json:
             data_dict = {
-                'max_cluster':np.max(clusters[:,:-1],0).tolist(),
-                'min_cluster':np.min(clusters[:,:-1],0).tolist(),
-                'maxcells':np.max(cells[:,:-1],0).tolist(),
-                'mincells':np.min(cells[:,:-1],0).tolist(),
+                'max_cluster':np.max(clusters[:,:],0).tolist(),
+                'min_cluster':np.min(clusters[:,:],0).tolist(),
+                'max_cell':np.max(cells[:,:-1],0).tolist(), #-1 avoids mask
+                'min_cell':np.min(cells[:,:-1],0).tolist(),
             }                
             
             SaveJson('preprocessing_{}.json'.format(npart),data_dict)
@@ -358,53 +357,54 @@ def DataLoader(data_path,labels,
             data_dict = LoadJson('preprocessing_{}.json'.format(npart))
 
 
-        print(f"\nL 359: Clusters in DataLoader Before Norm= {clusters[0]}\n")
+        # print(f"\nL 359: Clusters in DataLoader Before Norm= {clusters[0]}\n")
 
         #normalize
-        clusters[:,:-1] = np.ma.divide(clusters[:,:-1]-data_dict['min_cluster'],np.array(data_dict['max_cluster'])- data_dict['min_cluster']).filled(0)        
+        clusters[:,:] = np.ma.divide(clusters[:,:]-data_dict['min_cluster'],np.array(data_dict['max_cluster'])- data_dict['min_cluster']).filled(0)        
         cells[:,:-1]= np.ma.divide(cells[:,:-1]-data_dict['min_cell'],np.array(data_dict['max_cell'])- data_dict['min_cell']).filled(0)
 
         # make gaus-like. 
-        clusters[:,:-1] = _logit(clusters[:,:-1])
+        clusters = _logit(clusters)
         cells[:,:-1] = _logit(cells[:,:-1])
 
         if save_json:
             mask = cells[:,-1]
             mean_cell = np.average(cells[:,:-1],axis=0,weights=mask)
-            data_dict['mean_cluster']=np.mean(clusters[:,:-1],0).tolist()
-            data_dict['std_cluster']=np.std(clusters[:,:-1],0).tolist()
+            data_dict['mean_cluster']=np.mean(clusters,0).tolist()
+            data_dict['std_cluster']=np.std(clusters,0).tolist()
             data_dict['mean_cell']=mean_cell.tolist()
             data_dict['std_cell']=np.sqrt(np.average((cells[:,:-1] - mean_cell)**2,axis=0,weights=mask)).tolist()                        
             SaveJson('preprocessing_{}.json'.format(npart),data_dict)
-        
-            
-        clusters[:,:-1] = np.ma.divide(clusters[:,:-1]-data_dict['mean_cluster'],data_dict['std_cluster']).filled(0)
+
+
+        clusters = np.ma.divide(clusters-data_dict['mean_cluster'],data_dict['std_cluster']).filled(0)
         cells[:,:-1]= np.ma.divide(cells[:,:-1]-data_dict['mean_cell'],data_dict['std_cell']).filled(0)
-        
+
         cells = cells.reshape(clusters.shape[0],num_part,-1)
-        print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}\n")
-        print(f"\nL 381: Cells in DataLoader = {cells[0,:,:-1]}\n")
-        print(f"\nL 382: Clusters in DataLoader = {clusters}\n")
+        # print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}\n")
+        # print(f"\nL 381: Cells in DataLoader = {cells[0,:,:-1]}\n")
+        # print(f"\nL 382: Clusters in DataLoader = {clusters}\n")
         return cells.astype(np.float32),clusters.astype(np.float32)
-            
-            
+
+
     for label in labels:
-        
+
         with h5.File(os.path.join(data_path,label),"r") as h5f:
             ntotal = h5f['cluster'][:].shape[0]
+            # ntotal = 1_000
 
             if make_tf_data:
                 cell = h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)
                 cluster = h5f['cluster'][rank:int(0.7*ntotal):size].astype(np.float32)
-                print(f"cluster from H5 file = {cluster[0]}")
-                cluster = np.concatenate([cluster,labels[label]*np.ones(shape=(cluster.shape[0],1),dtype=np.float32)],-1)
-                
+                # print(f"cluster from H5 file = {cluster[0]}")
+                # cluster = np.concatenate([cluster,labels[label]*np.ones(shape=(cluster.shape[0],1),dtype=np.float32)],-1)
+
             else:
                 #load evaluation data
                 #if 'w' in label or 'z' in label: continue #no evaluation for w and z
                 cell = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
                 cluster = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
-                cluster = np.concatenate([cluster,labels[label]*np.ones(shape=(cluster.shape[0],1),dtype=np.float32)],-1)           
+                # cluster = np.concatenate([cluster,labels[label]*np.ones(shape=(cluster.shape[0],1),dtype=np.float32)],-1)           
 
 
             cells.append(cell)
@@ -412,46 +412,57 @@ def DataLoader(data_path,labels,
 
     cells = np.concatenate(cells)
     clusters = np.concatenate(clusters)
+    cond = clusters[:,:2]#GenP, GenTheta 
+    cond[:,0] = np.log10(cond[:,0])
+    clusters = clusters[:,2:] #ClusterSum, N_Hits
+
     # print(f"L407:\n JET SHAPE = {np.shape(clusters)}\n")
     # print(f"cell SHAPE = {np.shape(cells)}\n")
-    cells,clusters = shuffle(cells,clusters, random_state=0)
-    
+    cells,clusters,cond = shuffle(cells,clusters,cond, random_state=0)
+
     data_size = clusters.shape[0]
-    cells,clusters = _preprocessing(cells,clusters)    
+    # cells,clusters = _preprocessing(cells,clusters,save_json=True) #set to false after 1st
+    cells,clusters = _preprocessing(cells,clusters,save_json=False)    
     
 
     if make_tf_data:
-        train_cells = cells[:int(0.8*data_size)]
+        train_cells = cells[:int(0.8*data_size)] #This is 80% train (whcih 70% of total)
         train_clusters = clusters[:int(0.8*data_size)]
+        train_cond = cond[:int(0.8*data_size)]
         
         test_cells = cells[int(0.8*data_size):]
         test_clusters = clusters[int(0.8*data_size):]
+        test_cond = cond[int(0.8*data_size):]
         
     
-        def _prepare_batches(cells,clusters):
+        def _prepare_batches(cells,clusters,cond):
             
             nevts = clusters.shape[0]
-            tf_cluster = tf.data.Dataset.from_tensor_slices(clusters[:,:-1])
-            cond = to_categorical(clusters[:,-1], num_classes=num_classes) 
-            # cond = clusters[:,0] # Generated Momentum
+            tf_cluster = tf.data.Dataset.from_tensor_slices(clusters)
+
+            # cond = to_categorical(clusters[:,-1], num_classes=num_classes) 
+            # cond = np.ones(np.shape(clusters)[0])
+
             tf_cond = tf.data.Dataset.from_tensor_slices(cond)
             mask = np.expand_dims(cells[:,:,-1],-1)
             masked = cells[:,:,:-1]*mask
-            print("\n\nMasked cells = \n\n",masked)
+            # print("\n\nMasked cells = \n\n",masked)
             tf_part = tf.data.Dataset.from_tensor_slices(masked)
             tf_mask = tf.data.Dataset.from_tensor_slices(mask)
             tf_zip = tf.data.Dataset.zip((tf_part, tf_cluster,tf_cond,tf_mask))
             return tf_zip.shuffle(nevts).repeat().batch(batch_size)
     
-        train_data = _prepare_batches(train_cells,train_clusters)
-        test_data  = _prepare_batches(test_cells,test_clusters)    
+        train_data = _prepare_batches(train_cells,train_clusters,train_cond)
+        test_data  = _prepare_batches(test_cells,test_clusters,test_cond)    
         return data_size, train_data,test_data
     
     else:
         #FIXME: Need to change the condition from jet type to genP
         # cond = clusters[:,0] # Generated Momentum
-        cond = to_categorical(clusters[:nevts,-1], num_classes=num_classes_eval)
-        cond = np.concatenate([cond,np.zeros(shape=(cond.shape[0],num_classes-num_classes_eval), dtype=np.float32)], -1)
+        # cond = to_categorical(clusters[:nevts,-1], num_classes=num_classes_eval)
+
+        # cond = np.concatenate([cond,np.zeros(shape=(cond.shape[0],num_classes-num_classes_eval), dtype=np.float32)], -1)
+
         mask = np.expand_dims(cells[:nevts,:,-1],-1)
         # print("\n\nMask applide to Cells = \n\n",cells[0,:,:,-1]*mask[0])
-        return cells[:nevts,:,:-1]*mask,clusters[:nevts,:-1],cond
+        return cells[:nevts,:,:-1]*mask,clusters[:nevts], cond[:nevts]

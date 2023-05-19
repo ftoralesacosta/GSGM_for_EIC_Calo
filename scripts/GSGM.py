@@ -28,6 +28,7 @@ class GSGM(keras.Model):
         self.factor=factor
         #self.activation = layers.LeakyReLU(alpha=0.01)
         self.num_feat = self.config['NUM_FEAT']
+        print(f"num features = {self.num_feat}")
         self.num_cluster = self.config['NUM_JET']
         self.num_cond = self.config['NUM_COND']
         self.num_embed = self.config['EMBED']
@@ -78,6 +79,7 @@ class GSGM(keras.Model):
         cluster_conditional=self.activation(cluster_conditional)
 
         
+        print(f"INPUTS SHAPE DEFINITION = {self.num_feat}")
         self.shape = (-1,1,1)
         inputs,outputs = DeepSetsAtt(
             num_feat=self.num_feat,
@@ -87,11 +89,14 @@ class GSGM(keras.Model):
             projection_dim = 64,
             mask = inputs_mask,
         )
+
+        print(f"inputs = {inputs}")
         
 
-        self.model_part = keras.Model(inputs=[inputs,inputs_time,inputs_cluster,inputs_cond,inputs_mask],
-                                      outputs=outputs)
+        self.model_part = keras.Model(inputs=[inputs,inputs_time,inputs_cluster,inputs_cond,inputs_mask],outputs=outputs)
         
+        print(f"MODEL = {self.model_part}")
+
         outputs = Resnet(
             inputs_cluster,
             self.num_cluster,
@@ -101,8 +106,7 @@ class GSGM(keras.Model):
             mlp_dim= 512,
         )
         
-        self.model_cluster = keras.Model(inputs=[inputs_cluster,inputs_time,inputs_cond],
-                                     outputs=outputs)
+        self.model_cluster = keras.Model(inputs=[inputs_cluster,inputs_time,inputs_cond],outputs=outputs)
 
             
         self.ema_cluster = keras.models.clone_model(self.model_cluster)
