@@ -79,7 +79,8 @@ name_translate={
 names = ['g','q','t','w','z']
 
 labels200 = {
-    'truncated_200cells_FPCD.hdf5':0,
+    # 'truncated_200cells_FPCD.hdf5':0,
+    'improved_200cells_FPCD.hdf5':0,
     }
 
 labels1000 = {
@@ -87,7 +88,7 @@ labels1000 = {
 }
 
 nevts = -1
-# nevts = 1_0
+# nevts = 100_000
 num_classes = 5
 num_classes_eval = 5
 
@@ -282,7 +283,7 @@ def ReversePrep(cells,clusters,npart):
     cells=cells.reshape(-1,cells.shape[-1])
     print(f"\nCells shape = {np.shape(cells)}\n")
     
-    mask=np.expand_dims(cells[:,2]!=0,-1)
+    mask=np.expand_dims(cells[:,2]!=0,-1)#"Mask" data removed, just checks if feature 2 !=0
     def _revert(x,name='cluster'):    
         x = x*data_dict['std_{}'.format(name)] + data_dict['mean_{}'.format(name)]
         x = revert_logit(x)
@@ -297,6 +298,7 @@ def ReversePrep(cells,clusters,npart):
 
 
 def SimpleLoader(data_path,labels):
+    #FIXME: Simple Loader needs to split cluster into cluster+cond.!!!!
     cells = []
     clusters = []
 
@@ -328,6 +330,7 @@ def SimpleLoader(data_path,labels):
 def DataLoader(data_path,labels,
                npart,
                rank=0,size=1,
+               num_condition=2,#genP,genTheta
                batch_size=64,make_tf_data=True):
     cells = []
     clusters = []
@@ -335,7 +338,11 @@ def DataLoader(data_path,labels,
     def _preprocessing(cells,clusters,save_json=False):
         num_part = cells.shape[1]
         #eta cut removed here
+        # mask = np.expand_dims(cells[:,:,-1],-1)
+        # cells = cells[:,:,:-1]*mask
+        print(f"\n\nSHAPE OF CELLS in _preprocess = {np.shape(cells)}")
         cells=cells.reshape(-1,cells.shape[-1]) #flatten
+        print(f"\n\nSHAPE OF CELLS in _preprocess = {np.shape(cells)}")
 
         def _logit(x):                            
             alpha = 1e-6
@@ -345,11 +352,16 @@ def DataLoader(data_path,labels,
         #Transformations
 
         if save_json:
+            mask = cells[:,-1] == 1
+            print(f"SHAPE OF MASK in _preprocess = {np.shape(mask)}")
+            print(f"SHAPE OF MASKED in _preprocess = {np.shape(cells[mask])}")
+            # print(f"SHAPE OF MASKED* in _preprocess = {np.shape(cells*mask)}")
+            
             data_dict = {
                 'max_cluster':np.max(clusters[:,:],0).tolist(),
                 'min_cluster':np.min(clusters[:,:],0).tolist(),
-                'max_cell':np.max(cells[:,:-1],0).tolist(), #-1 avoids mask
-                'min_cell':np.min(cells[:,:-1],0).tolist(),
+                'max_cell':np.max(cells[mask][:,:-1],0).tolist(), #-1 avoids mask
+                'min_cell':np.min(cells[mask][:,:-1],0).tolist(),
             }                
             
             SaveJson('preprocessing_{}.json'.format(npart),data_dict)
@@ -391,7 +403,7 @@ def DataLoader(data_path,labels,
 
         with h5.File(os.path.join(data_path,label),"r") as h5f:
             ntotal = h5f['cluster'][:].shape[0]
-            # ntotal = 1_000
+            ntotal = nevts
 
             if make_tf_data:
                 cell = h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)
@@ -412,8 +424,9 @@ def DataLoader(data_path,labels,
 
     cells = np.concatenate(cells)
     clusters = np.concatenate(clusters)
-    cond = clusters[:,:2]#GenP, GenTheta 
-    cond[:,0] = np.log10(cond[:,0])
+    # cond = clusters[:,:2]#GenP, GenTheta
+    cond = clusters[:,:num_condition]#GenP, GenTheta 
+    cond[:,0] = np.log10(cond[:,0]) #Log10 of GenP
     clusters = clusters[:,2:] #ClusterSum, N_Hits
 
     # print(f"L407:\n JET SHAPE = {np.shape(clusters)}\n")
@@ -421,8 +434,9 @@ def DataLoader(data_path,labels,
     cells,clusters,cond = shuffle(cells,clusters,cond, random_state=0)
 
     data_size = clusters.shape[0]
-    # cells,clusters = _preprocessing(cells,clusters,save_json=True) #set to false after 1st
-    cells,clusters = _preprocessing(cells,clusters,save_json=False)    
+    # mask = np.expand_dims(cells[:nevts,:,-1],-1)
+    cells,clusters = _preprocessing(cells,clusters,save_json=True) #set to false after 1st
+    # cells,clusters = _preprocessing(cells,clusters,save_json=False)    
     
 
     if make_tf_data:
