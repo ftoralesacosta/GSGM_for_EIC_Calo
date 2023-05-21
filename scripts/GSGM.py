@@ -268,7 +268,7 @@ class GSGM(keras.Model):
                                     data_shape=[self.num_cluster],
                                     const_shape = [-1,1]).numpy()
         end = time.time()
-        print("Time for sampling {} events is {} seconds".format(cond.shape[0],end - start))
+        print("Time for sampling {} events for CLUSTERS is {} seconds".format(cond.shape[0],end - start))
         return cluster_info
 
 
@@ -298,7 +298,7 @@ class GSGM(keras.Model):
         
         # parts = np.ones(shape=(cond.shape[0],self.max_part,3))
         end = time.time()
-        print("Time for sampling {} events is {} seconds".format(cond.shape[0],end - start))
+        print("Time for sampling {} events for CELLS is {} seconds".format(cond.shape[0],end - start))
         return parts*mask,cluster_info
 
 

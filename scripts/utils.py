@@ -87,8 +87,8 @@ labels1000 = {
     'truncated_1000cells_FPCD.hdf5':0,
 }
 
-nevts = -1
-# nevts = 100_000
+# nevts = -1
+nevts = 100_000
 num_classes = 5
 num_classes_eval = 5
 
@@ -352,7 +352,7 @@ def DataLoader(data_path,labels,
         #Transformations
 
         if save_json:
-            mask = cells[:,-1] == 1
+            mask = cells[:,-1] == 1 #saves array of BOOLS instead of ints
             print(f"SHAPE OF MASK in _preprocess = {np.shape(mask)}")
             print(f"SHAPE OF MASKED in _preprocess = {np.shape(cells[mask])}")
             # print(f"SHAPE OF MASKED* in _preprocess = {np.shape(cells*mask)}")
@@ -360,6 +360,8 @@ def DataLoader(data_path,labels,
             data_dict = {
                 'max_cluster':np.max(clusters[:,:],0).tolist(),
                 'min_cluster':np.min(clusters[:,:],0).tolist(),
+                # 'max_cell':np.max(cells[:,:-1],0).tolist(), #-1 avoids mask
+                # 'min_cell':np.min(cells[:,:-1],0).tolist(),
                 'max_cell':np.max(cells[mask][:,:-1],0).tolist(), #-1 avoids mask
                 'min_cell':np.min(cells[mask][:,:-1],0).tolist(),
             }                
@@ -403,7 +405,7 @@ def DataLoader(data_path,labels,
 
         with h5.File(os.path.join(data_path,label),"r") as h5f:
             ntotal = h5f['cluster'][:].shape[0]
-            ntotal = nevts
+            # ntotal = nevts
 
             if make_tf_data:
                 cell = h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)

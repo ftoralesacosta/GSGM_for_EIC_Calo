@@ -49,6 +49,7 @@ if __name__ == "__main__":
                                                          labels,
                                                          npart,
                                                          hvd.rank(),hvd.size(),
+                                                         config['NUM_COND'],
                                                          config['BATCH'])
 
     model = GSGM(config=config,npart=npart)

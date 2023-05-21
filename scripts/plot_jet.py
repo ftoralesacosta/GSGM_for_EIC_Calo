@@ -116,6 +116,7 @@ if __name__ == "__main__":
     cells,clusters,flavour = utils.DataLoader(flags.data_folder,
                                               labels=labels,
                                               npart=npart,
+                                              num_condition=config['NUM_COND'],
                                               make_tf_data=False)
 
     if flags.test:
@@ -145,10 +146,10 @@ if __name__ == "__main__":
             cells_gen = []
             clusters_gen = []
 
-            nsplit = 1 #number of batches, in which to split nevts in utils.py
+            nsplit = 20 #number of batches, in which to split nevts in utils.py
             split_part = np.array_split(clusters,nsplit)
             for i,split in enumerate(np.array_split(flavour,nsplit)):
-                print("\n\nSPLITE SHAPE = ",split.shape[0])
+                print("\n\nSPLIT SHAPE = ",split.shape[0])
                 #,split_part[i]
                 # genP as input to model.genearet()
                 p,j = model.generate(split,split_part[i])

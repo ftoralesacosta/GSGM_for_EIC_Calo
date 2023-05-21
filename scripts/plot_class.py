@@ -18,24 +18,24 @@ class PlottingConfig():
 
 
     def get_name(self):
-        if self.name == 'jet':
+        if self.name == 'cluster':
             name_translate = [
-                r'Jet p$_T$ [GeV]',
-                r'Jet $\eta$',
-                r'Jet mass [GeV]',
-                r'Jet particle multiplicity',
+                r'Cluster p$_T$ [GeV]',
+                r'Cluster $\eta$',
+                r'Cluster mass [GeV]',
+                r'Cluster cell multiplicity',
             ]
         else:
             name_translate = [
-                r'All particles $\eta_{rel}$',
-                r'All particles $\phi_{rel}$',
-                r'All particles p$_{Trel}$',
+                r'All cells $\eta_{rel}$',
+                r'All cells $\phi_{rel}$',
+                r'All cells p$_{Trel}$',
             ]
 
         return name_translate[self.idx]
     
     def get_binning(self):
-        if self.name == 'jet':
+        if self.name == 'cluster':
             binning_dict = {
                 0 : np.linspace(700,1800,15),
                 1 : np.linspace(-2.,2.,15),
@@ -54,7 +54,7 @@ class PlottingConfig():
         return binning_dict[self.idx]
 
     def get_logy(self):
-        if self.name == 'jet':
+        if self.name == 'cluster':
             binning_dict = {
                 0 : True,
                 1 : False,
@@ -74,7 +74,7 @@ class PlottingConfig():
 
 
     def get_y(self):
-        if self.name == 'jet':
+        if self.name == 'cluster':
             binning_dict = {
                 0 : 0.1,
                 1 : 0.7,
