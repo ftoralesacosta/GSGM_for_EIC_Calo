@@ -360,8 +360,6 @@ def DataLoader(data_path,labels,
             data_dict = {
                 'max_cluster':np.max(clusters[:,:],0).tolist(),
                 'min_cluster':np.min(clusters[:,:],0).tolist(),
-                # 'max_cell':np.max(cells[:,:-1],0).tolist(), #-1 avoids mask
-                # 'min_cell':np.min(cells[:,:-1],0).tolist(),
                 'max_cell':np.max(cells[mask][:,:-1],0).tolist(), #-1 avoids mask
                 'min_cell':np.min(cells[mask][:,:-1],0).tolist(),
             }                
