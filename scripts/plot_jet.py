@@ -163,13 +163,13 @@ if __name__ == "__main__":
             # clusters_gen = np.concatenate([clusters_gen,np.expand_dims(np.argmax(flavour,-1),-1)],-1)
 
             with h5.File(os.path.join(flags.data_folder,sample_name+'.h5'),"w") as h5f:
-                dset = h5f.create_dataset("particle_features", data=cells_gen)
+                dset = h5f.create_dataset("cell_features", data=cells_gen)
                 dset = h5f.create_dataset("cluster_features", data=clusters_gen)
                 
         else:
             with h5.File(os.path.join(flags.data_folder,sample_name+'.h5'),"r") as h5f:
+                cells_gen = h5f['cell_features'][:]
                 clusters_gen = h5f['cluster_features'][:]
-                cells_gen = h5f['particle_features'][:]
                 
         flavour_gen = clusters_gen[:,-1]
         assert np.all(flavour_gen == np.argmax(flavour,-1)), 'The order between the cells dont match'

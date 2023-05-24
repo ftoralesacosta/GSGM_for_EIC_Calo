@@ -3,7 +3,7 @@
     'NUM_JET':2,
     'NUM_COND':2,
     'BATCH':128,
-    'LR':0.0001,
+    'LR':0.001,
     'MAXEPOCH':250,
     'EARLYSTOP':20,
     'EMBED':64,

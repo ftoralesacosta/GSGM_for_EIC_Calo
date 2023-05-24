@@ -9,7 +9,7 @@ from deepsets import DeepSetsAtt, Resnet
 from tensorflow.keras.activations import swish, relu
 
 # tf and friends
-tf.random.set_seed(1234)
+tf.random.set_seed(1235)
 
 class GSGM(keras.Model):
     """Score based generative model"""
@@ -28,7 +28,6 @@ class GSGM(keras.Model):
         self.factor=factor
         #self.activation = layers.LeakyReLU(alpha=0.01)
         self.num_feat = self.config['NUM_FEAT']
-        print(f"num features = {self.num_feat}")
         self.num_cluster = self.config['NUM_JET']
         self.num_cond = self.config['NUM_COND']
         self.num_embed = self.config['EMBED']
@@ -50,10 +49,7 @@ class GSGM(keras.Model):
         self.posterior_mean_coef2 = (1 - alphas_cumprod_prev) * tf.sqrt(alphas) / (1. - self.alphas_cumprod)
         
 
-        
-                
         #self.verbose = 1 if hvd.rank() == 0 else 0 #show progress only for first rank
-
         
         self.projection = self.GaussianFourierProjection(scale = 16)
         self.loss_tracker = keras.metrics.Mean(name="loss")
@@ -79,7 +75,6 @@ class GSGM(keras.Model):
         cluster_conditional=self.activation(cluster_conditional)
 
         
-        print(f"INPUTS SHAPE DEFINITION = {self.num_feat}")
         self.shape = (-1,1,1)
         inputs,outputs = DeepSetsAtt(
             num_feat=self.num_feat,
@@ -268,7 +263,8 @@ class GSGM(keras.Model):
                                     data_shape=[self.num_cluster],
                                     const_shape = [-1,1]).numpy()
         end = time.time()
-        print("Time for sampling {} events for CLUSTERS is {} seconds".format(cond.shape[0],end - start))
+        print("Sampling Clusters in {} Events ({} Seconds)".format(cond.shape[0],end - start))
+
         return cluster_info
 
 
@@ -278,7 +274,7 @@ class GSGM(keras.Model):
                                     data_shape=[self.num_cluster],
                                     const_shape = [-1,1]).numpy()
         end = time.time()
-        print("Time for sampling {} events is {} seconds".format(cond.shape[0],end - start))
+        print("Sampling Particles in {} Events ({} Seconds)".format(cond.shape[0],end - start))
 
         nparts = np.expand_dims(np.clip(utils.revert_npart(cluster_info[:,-1],self.max_part),
                                         0,self.max_part),-1)

@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     flags = parser.parse_args()
     config = utils.LoadJson(flags.config)
-    print("\n\nL 37: Configuration:" ,config)
+    print(f"\n\nL 37: Configuration: {config} \n\n")
 
     assert flags.factor%2==0 or flags.factor==1, "Distillation reduction steps needs to be even"
 
