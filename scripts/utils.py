@@ -360,8 +360,10 @@ def DataLoader(data_path,labels,
             data_dict = {
                 'max_cluster':np.max(clusters[:,:],0).tolist(),
                 'min_cluster':np.min(clusters[:,:],0).tolist(),
-                'max_cell':np.max(cells[mask][:,:-1],0).tolist(), #-1 avoids mask
-                'min_cell':np.min(cells[mask][:,:-1],0).tolist(),
+                'max_cell':np.max(cells[:,:-1],0).tolist(), #-1 avoids mask
+                'min_cell':np.min(cells[:,:-1],0).tolist(),
+                # 'max_cell':np.max(cells[mask][:,:-1],0).tolist(), #-1 avoids mask
+                # 'min_cell':np.min(cells[mask][:,:-1],0).tolist(),
             }                
             
             SaveJson('preprocessing_{}.json'.format(npart),data_dict)
@@ -406,17 +408,13 @@ def DataLoader(data_path,labels,
             # ntotal = nevts
 
             if make_tf_data:
-                cell = h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)
-                cluster = h5f['cluster'][rank:int(0.7*ntotal):size].astype(np.float32)
-                # print(f"cluster from H5 file = {cluster[0]}")
-                # cluster = np.concatenate([cluster,labels[label]*np.ones(shape=(cluster.shape[0],1),dtype=np.float32)],-1)
+                cell=h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)
+                cluster=h5f['cluster'][rank:int(0.7*ntotal):size].astype(np.float32)
 
             else:
                 #load evaluation data
-                #if 'w' in label or 'z' in label: continue #no evaluation for w and z
                 cell = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
                 cluster = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
-                # cluster = np.concatenate([cluster,labels[label]*np.ones(shape=(cluster.shape[0],1),dtype=np.float32)],-1)           
 
 
             cells.append(cell)
@@ -424,20 +422,28 @@ def DataLoader(data_path,labels,
 
     cells = np.concatenate(cells)
     clusters = np.concatenate(clusters)
-    # cond = clusters[:,:2]#GenP, GenTheta
+
+    #Split Cluster Data into Input and Condition
     cond = clusters[:,:num_condition]#GenP, GenTheta 
-    cond[:,0] = np.log10(cond[:,0]) #Log10 of GenP
     clusters = clusters[:,2:] #ClusterSum, N_Hits
+
+
+    # clusters = np.log10(clusters[:,0]) # ClusterSum E  
+    # FIXME: Implement after no-mask to min/max re-train. 5/23
 
     # print(f"L407:\n JET SHAPE = {np.shape(clusters)}\n")
     # print(f"cell SHAPE = {np.shape(cells)}\n")
     cells,clusters,cond = shuffle(cells,clusters,cond, random_state=0)
 
     data_size = clusters.shape[0]
-    # mask = np.expand_dims(cells[:nevts,:,-1],-1)
-    cells,clusters = _preprocessing(cells,clusters,save_json=True) #set to false after 1st
-    # cells,clusters = _preprocessing(cells,clusters,save_json=False)    
+    cells,clusters = _preprocessing(cells,clusters,save_json=True) 
+    # set to false after 1st run
+
     
+    #Additional Pre-Processing, Log10 of E
+    # cells[:,:,0] = np.log10(cells[:,:,0]) #Log10(CellE)
+    cond[:,0] = np.log10(cond[:,0]) #Log10 of GenP
+
 
     if make_tf_data:
         train_cells = cells[:int(0.8*data_size)] #This is 80% train (whcih 70% of total)
