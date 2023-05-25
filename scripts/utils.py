@@ -89,6 +89,7 @@ labels1000 = {
 
 # nevts = -1
 nevts = 10_000
+# nevts = 1_00
 num_classes = 5
 num_classes_eval = 5
 
@@ -287,14 +288,20 @@ def ReversePrep(cells,clusters,npart):
     def _revert(x,name='cluster'):    
         x = x*data_dict['std_{}'.format(name)] + data_dict['mean_{}'.format(name)]
         x = revert_logit(x)
-        #print(data_dict['max_{}'.format(name)],data_dict['min_{}'.format(name)])
+        print(data_dict['max_{}'.format(name)],data_dict['min_{}'.format(name)])
         x = x * (np.array(data_dict['max_{}'.format(name)]) -data_dict['min_{}'.format(name)]) + data_dict['min_{}'.format(name)]
         return x
         
+    # print(f"Cells before _revert = {cells[0]}")
+    print(f"Cell Shape before _revert or mask = {np.shape(cells)}")
+    cells = (cells*mask).reshape(clusters.shape[0],num_part,-1)
+    print(f"Cell Shape before _revert after mask = {np.shape(cells)}")
     cells = _revert(cells,'cell')
+    print(f"Cell Shape after _revert after mask = {np.shape(cells)}")
     clusters = _revert(clusters,'cluster')
     clusters[:,-1] = np.round(clusters[:,-1]) #num cells
-    return (cells*mask).reshape(clusters.shape[0],num_part,-1),clusters
+    # return (cells*mask).reshape(clusters.shape[0],num_part,-1),clusters
+    return cells,clusters
 
 
 def SimpleLoader(data_path,labels,num_condition=2):
@@ -438,6 +445,7 @@ def DataLoader(data_path,labels,
 
     cells,clusters,cond = shuffle(cells,clusters,cond, random_state=0)
     cells,clusters = _preprocessing(cells,clusters,save_json=True) 
+    # cells,clusters = _preprocessing(cells,clusters,save_json=False) 
     
 
     # Do Train/Test Split, or just return data

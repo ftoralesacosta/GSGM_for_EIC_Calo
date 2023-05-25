@@ -149,7 +149,6 @@ if __name__ == "__main__":
             nsplit = 20 #number of batches, in which to split nevts in utils.py
             split_part = np.array_split(clusters,nsplit)
             for i,split in enumerate(np.array_split(flavour,nsplit)):
-                print("\n\nSPLIT SHAPE = ",split.shape[0])
                 #,split_part[i]
                 # genP as input to model.genearet()
                 p,j = model.generate(split,split_part[i])
@@ -172,6 +171,7 @@ if __name__ == "__main__":
                 clusters_gen = h5f['cluster_features'][:]
                 
         flavour_gen = clusters_gen[:,-1]
+
         assert np.all(flavour_gen == np.argmax(flavour,-1)), 'The order between the cells dont match'
         clusters_gen = clusters_gen[:,:-1]
             
