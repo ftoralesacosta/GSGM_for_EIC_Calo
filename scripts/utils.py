@@ -17,19 +17,13 @@ line_style = {
     'gen':'-',
     'Geant':'dotted',
     'GSGM':'-',
-    'q_truth':'-',
-    'q_gen':'dotted',
-    'g_truth':'-',
-    'g_gen':'dotted',
-    't_truth':'-',
-    't_gen':'dotted',
-    'w_truth':'-',
-    'w_gen':'dotted',
-    'z_truth':'-',
-    'z_gen':'dotted',
+    'P_truth':'-',
+    'P_gen':'dotted',
+    'Theta_truth':'-',
+    'Theta_gen':'dotted',
 
-    't_gen_d64':'dotted',
-    't_gen_d256':'dotted',
+    # 't_gen_d64':'dotted',
+    # 't_gen_d256':'dotted',
     
 }
 
@@ -39,20 +33,10 @@ colors = {
     'Geant':'black',
     'GSGM':'#7570b3',
 
-    'q_truth':'#7570b3',
-    'q_gen':'#7570b3',
-    'g_truth':'#d95f02',
-    'g_gen':'#d95f02',
-    't_truth':'#1b9e77',
-    't_gen':'#1b9e77',
-    'w_truth':'#e7298a',
-    'w_gen':'#e7298a',
-    'z_truth':'black',
-    'z_gen':'black',
-
-    't_gen_d64':'red',
-    't_gen_d256':'blue',
-
+    'P_truth':'#7570b3',
+    'P_gen':'#7570b3',
+    'Theta_truth':'#d95f02',
+    'Theta_gen':'#d95f02',
 }
 
 name_translate={
@@ -61,25 +45,19 @@ name_translate={
     'Geant':'Geant 4',
     'GSGM':'Graph Diffusion',
 
-    'q_truth':'Sim.: q',
-    'q_gen':'FPCD: q',
-    'g_truth':'Sim.: g',
-    'g_gen':'FPCD: g',
-    't_truth':'Sim.: top',
-    't_gen':'FPCD: top',
-    'w_truth':'Sim.: W',
-    'w_gen':'FPCD: W',
-    'z_truth':'Sim.: Z',
-    'z_gen':'FPCD: Z',
+    'P_truth':'Sim.: P',
+    'P_gen':'FPCD: P',
+    'Theta_truth':'Sim.: Theta',
+    'Theta_gen':'FPCD: Theta',
 
-    't_gen_d64':'FPCD: top 8 steps',
-    't_gen_d256':'FPCD: top 2 steps',
+    # 't_gen_d64':'FPCD: top 8 steps',
+    # 't_gen_d256':'FPCD: top 2 steps',
     }
 
-names = ['g','q','t','w','z']
+# names = ['g','q','t','w','z']
+names = ['P','Theta']
 
 labels200 = {
-    # 'truncated_200cells_FPCD.hdf5':0,
     'improved_200cells_FPCD.hdf5':0,
     }
 
@@ -88,11 +66,7 @@ labels1000 = {
 }
 
 # nevts = -1
-nevts = 10_000
-# nevts = 1_00
-num_classes = 5
-num_classes_eval = 5
-
+nevts = 2_000
 
 def SetStyle():
     from matplotlib import rc
@@ -204,6 +178,7 @@ def HistRoutine(feed_dict,
                 plot_ratio= True,
                 idx = None,
                 label_loc='best'):
+
     assert reference_name in feed_dict.keys(), "ERROR: Don't know the reference distribution"
 
     if fig is None:
@@ -222,7 +197,20 @@ def HistRoutine(feed_dict,
     maxy = np.max(reference_hist)
     
     for ip,plot in enumerate(feed_dict.keys()):
-        dist,_,_=ax0.hist(feed_dict[plot],bins=binning,label=name_translate[plot],linestyle=line_style[plot],color=colors[plot],density=True,histtype="step")
+
+        # print("Plot",ip,": Shape of feed_dict = ",np.shape(feed_dict[plot]))
+        # print("Feed Dict Keys = ",feed_dict.keys())
+        # print("Name translate keys = ",name_translate.keys())
+        # print("Line_style keys = ",line_style.keys())
+        # print("Colors keys = ",colors.keys())
+
+        dist,_,_=ax0.hist(feed_dict[plot], bins=binning, 
+                          label=name_translate[plot],
+                          linestyle=line_style[plot],
+                          color=colors[plot], 
+                          density=True,
+                          histtype="step")
+
         if plot_ratio:
             if reference_name!=plot:
                 ratio = 100*np.divide(reference_hist-dist,reference_hist)
@@ -282,9 +270,14 @@ def ReversePrep(cells,clusters,npart):
     data_dict = LoadJson('preprocessing_{}.json'.format(npart))
     num_part = cells.shape[1]    
     cells=cells.reshape(-1,cells.shape[-1])
+    mask=np.expand_dims(cells[:,3]!=0,-1) #for 4D cell, this is Z
+    print("Cells in ReversePrep = ",cells[:5,:])
+    print("Cells in ReversePrep = ",cells[-5:,:])
+    print("Mask (B) in ReversePrep = ",cells[:5,:])
+    print("Mask (E) in ReversePrep = ",cells[-5:,:])
     print(f"\nCells shape = {np.shape(cells)}\n")
-    
-    mask=np.expand_dims(cells[:,2]!=0,-1)#"Mask" data removed, just checks if feature 2 !=0
+    print(f"\nMask shape = {np.shape(cells)}\n")
+
     def _revert(x,name='cluster'):    
         x = x*data_dict['std_{}'.format(name)] + data_dict['mean_{}'.format(name)]
         x = revert_logit(x)
@@ -292,27 +285,38 @@ def ReversePrep(cells,clusters,npart):
         x = x * (np.array(data_dict['max_{}'.format(name)]) -data_dict['min_{}'.format(name)]) + data_dict['min_{}'.format(name)]
         return x
         
-    # print(f"Cells before _revert = {cells[0]}")
+    print(f"L288 Cells before _revert (Last5)= {cells[-5]}")
     print(f"Cell Shape before _revert or mask = {np.shape(cells)}")
-    cells = (cells*mask).reshape(clusters.shape[0],num_part,-1)
-    print(f"Cell Shape before _revert after mask = {np.shape(cells)}")
+
+
     cells = _revert(cells,'cell')
     print(f"Cell Shape after _revert after mask = {np.shape(cells)}")
+    print(f"Cells after _revert after mask(Last5)= {cells[-5]}")
+
+    cells = (cells*mask).reshape(clusters.shape[0],num_part,-1)
+    print(f"Cell Shape before _revert after mask = {np.shape(cells)}")
+    print(f"Cells before _revert after mask(Last5)= {cells[-5]}")
+
     clusters = _revert(clusters,'cluster')
     clusters[:,-1] = np.round(clusters[:,-1]) #num cells
-    # return (cells*mask).reshape(clusters.shape[0],num_part,-1),clusters
+
     return cells,clusters
 
 
-def SimpleLoader(data_path,labels,num_condition=2):
-    #FIXME: Simple Loader needs to split cluster into cluster+cond.!!!!
+def SimpleLoader(data_path,
+                 labels,
+                 ncluster_var = 2,
+                 num_condition = 2):
+
     cells = []
     clusters = []
+    cond = []
 
     for label in labels:
         #if 'w' in label or 'z' in label: continue #no evaluation for w and z
         with h5.File(os.path.join(data_path,label),"r") as h5f:
             ntotal = h5f['cluster'][:].shape[0]
+            # ntotal = int(nevts)
             cell = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
             cluster = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
             cluster = np.concatenate([cluster,labels[label]*np.ones(shape=(cluster.shape[0],1),dtype=np.float32)],-1)
@@ -323,14 +327,12 @@ def SimpleLoader(data_path,labels,num_condition=2):
     cells = np.concatenate(cells)
     clusters = np.concatenate(clusters)
 
-    #Split Conditioned Features and Training Features
+    #Split Conditioned Features and Cluster Training Features
     cond = clusters[:,:num_condition]#GenP, GenTheta 
-    clusters = clusters[:,2:] #ClusterSum, N_Hits
+    clusters = clusters[:,ncluster_var:] #ClusterSum, N_Hits
 
     cells,clusters = shuffle(cells,clusters, random_state=0)
 
-
-    # cond = to_categorical(clusters[:nevts,-1], num_classes=num_classes)
     mask = np.expand_dims(cells[:nevts,:,-1],-1)
 
     return cells[:nevts,:,:-1]*mask,clusters[:nevts],cond[:nevts]
@@ -339,6 +341,7 @@ def SimpleLoader(data_path,labels,num_condition=2):
 def DataLoader(data_path,labels,
                npart,
                rank=0,size=1,
+               ncluster_var=2,
                num_condition=2,#genP,genTheta
                batch_size=64,make_tf_data=True):
     cells = []
@@ -346,12 +349,8 @@ def DataLoader(data_path,labels,
 
     def _preprocessing(cells,clusters,save_json=False):
         num_part = cells.shape[1]
-        #eta cut removed here
-        # mask = np.expand_dims(cells[:,:,-1],-1)
-        # cells = cells[:,:,:-1]*mask
-        print(f"\n\nSHAPE OF CELLS in _preprocess = {np.shape(cells)}")
-        cells=cells.reshape(-1,cells.shape[-1]) #flatten
-        print(f"\n\nSHAPE OF CELLS in _preprocess = {np.shape(cells)}")
+
+        cells=cells.reshape(-1,cells.shape[-1]) #flattens D0 and D1
 
         def _logit(x):                            
             alpha = 1e-6
@@ -362,10 +361,7 @@ def DataLoader(data_path,labels,
 
         if save_json:
             mask = cells[:,-1] == 1 #saves array of BOOLS instead of ints
-            print(f"SHAPE OF MASK in _preprocess = {np.shape(mask)}")
-            print(f"SHAPE OF MASKED in _preprocess = {np.shape(cells[mask])}")
-            # print(f"SHAPE OF MASKED* in _preprocess = {np.shape(cells*mask)}")
-            
+            print(f"MASKED {np.shape(cells[mask])[0]} / {len(mask)} in _preprocess") 
             data_dict = {
                 'max_cluster':np.max(clusters[:,:],0).tolist(),
                 'min_cluster':np.min(clusters[:,:],0).tolist(),
@@ -398,6 +394,7 @@ def DataLoader(data_path,labels,
             data_dict['std_cluster']=np.std(clusters,0).tolist()
             data_dict['mean_cell']=mean_cell.tolist()
             data_dict['std_cell']=np.sqrt(np.average((cells[:,:-1] - mean_cell)**2,axis=0,weights=mask)).tolist()                        
+
             SaveJson('preprocessing_{}.json'.format(npart),data_dict)
 
 
@@ -405,9 +402,9 @@ def DataLoader(data_path,labels,
         cells[:,:-1]= np.ma.divide(cells[:,:-1]-data_dict['mean_cell'],data_dict['std_cell']).filled(0)
 
         cells = cells.reshape(clusters.shape[0],num_part,-1)
-        print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}\n")
-        print(f"\nL 381: Cells in DataLoader = {cells[0,:,:-1]}\n")
-        print(f"\nL 382: Clusters in DataLoader = {clusters}\n")
+        print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}")
+        print(f"\nL 381: Cells in DataLoader = \n{cells[0,15:20,:]}")
+       #print(f"\nL 382: Clusters in DataLoader = {clusters}\n")
         return cells.astype(np.float32),clusters.astype(np.float32)
 
 
@@ -415,7 +412,7 @@ def DataLoader(data_path,labels,
 
         with h5.File(os.path.join(data_path,label),"r") as h5f:
             ntotal = h5f['cluster'][:].shape[0]
-            # ntotal = nevts
+            # ntotal = int(nevts)
 
             if make_tf_data:
                 cell=h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)
@@ -426,7 +423,6 @@ def DataLoader(data_path,labels,
                 cell = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
                 cluster = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
 
-
             cells.append(cell)
             clusters.append(cluster)
 
@@ -435,16 +431,16 @@ def DataLoader(data_path,labels,
 
     #Split Cluster Data into Input and Condition
     cond = clusters[:,:num_condition]#GenP, GenTheta 
-    clusters = clusters[:,2:] #ClusterSum, N_Hits
+    clusters = clusters[:,ncluster_var:] #ClusterSum, N_Hits
 
 
     #Additional Pre-Processing, Log10 of E
     cells[:,:,0] = np.log10(cells[:,:,0]) #Log10(CellE)
+    cond[:,0] = np.log10(cond[:,0]) #Log10 of GenP #Make sure maks is applied in _preprocess
     # clusters = np.log10(clusters[:,0]) # ClusterSumE, after cond split
-    cond[:,0] = np.log10(cond[:,0]) #Log10 of GenP
 
-    cells,clusters,cond = shuffle(cells,clusters,cond, random_state=0)
-    cells,clusters = _preprocessing(cells,clusters,save_json=True) 
+    cells,clusters,cond = shuffle(cells, clusters, cond, random_state=0)
+    cells,clusters = _preprocessing(cells, clusters, save_json=True) 
     # cells,clusters = _preprocessing(cells,clusters,save_json=False) 
     
 
@@ -452,6 +448,7 @@ def DataLoader(data_path,labels,
     data_size = clusters.shape[0]
 
     if make_tf_data:
+ 
         train_cells = cells[:int(0.8*data_size)] #This is 80% train (whcih 70% of total)
         train_clusters = clusters[:int(0.8*data_size)]
         train_cond = cond[:int(0.8*data_size)]
@@ -466,24 +463,30 @@ def DataLoader(data_path,labels,
             nevts = clusters.shape[0]
             tf_cluster = tf.data.Dataset.from_tensor_slices(clusters)
 
-            # cond = to_categorical(clusters[:,-1], num_classes=num_classes) 
-            # cond = np.ones(np.shape(clusters)[0])
-
             tf_cond = tf.data.Dataset.from_tensor_slices(cond)
             mask = np.expand_dims(cells[:,:,-1],-1)
+
+            # print(f"Mask in _prepare_batches = ", mask)
+            # print(f"Mask in _prepare_batches = ", mask[-10:])
+
+            print(f"\n\nWhat Should be masked cells = ", cells[0,:-10,:])
             masked = cells[:,:,:-1]*mask
-            # print("\n\nMasked cells = \n\n",masked)
+            masked[masked[:,:,:] == -0.0] = 0.0
+
+            print(f"Cells in _prepare_batches = \n",masked[10,:10,:])
+            print(f"Cells in _prepare_batches = \n",masked[10,-10:,:])
+
             tf_part = tf.data.Dataset.from_tensor_slices(masked)
             tf_mask = tf.data.Dataset.from_tensor_slices(mask)
             tf_zip = tf.data.Dataset.zip((tf_part, tf_cluster,tf_cond,tf_mask))
+
             return tf_zip.shuffle(nevts).repeat().batch(batch_size)
     
         train_data = _prepare_batches(train_cells,train_clusters,train_cond)
         test_data  = _prepare_batches(test_cells,test_clusters,test_cond)    
-        return data_size, train_data,test_data
+        return data_size, train_data, test_data
     
     else:
 
         mask = np.expand_dims(cells[:nevts,:,-1],-1)
-        # print("\n\nMask applide to Cells = \n\n",cells[0,:,:,-1]*mask[0])
         return cells[:nevts,:,:-1]*mask,clusters[:nevts], cond[:nevts]

@@ -41,32 +41,28 @@ def W1(
     stds = np.std(w1s, axis=0)
     return means, stds
 
-def plot(cluster1,cluster2,flav1,flav2,nplots,title,plot_folder,is_big):
+def plot(cluster1,cluster2,cond1,cond2,nplots,title,plot_folder,is_big):
     for ivar in range(nplots):
         config = PlottingConfig(title,ivar,is_big)
-        
-        for i,unique in enumerate(np.unique(np.argmax(flavour,-1))):
-            mask1 = np.argmax(flav1,-1)== unique
-            mask2 = np.argmax(flav2,-1)== unique        
-            
-            name = utils.names[unique]
-            feed_dict = {
-                '{}_truth'.format(name):cluster1[:,ivar][mask1],
-                '{}_gen'.format(name):  cluster2[:,ivar][mask2]
-            }
-            
-            if i == 0:                            
-                fig,gs,_ = utils.HistRoutine(feed_dict,xlabel=config.var,
-                                             binning=config.binning,
-                                             plot_ratio=False,
-                                             reference_name='{}_truth'.format(name),
-                                             ylabel= 'Normalized entries',logy=config.logy)
-            else:
-                fig,gs,_ = utils.HistRoutine(feed_dict,xlabel=config.var,
-                                             reference_name='{}_truth'.format(name),
-                                             plot_ratio=False,
-                                             fig=fig,gs=gs,binning=config.binning,
-                                             ylabel= 'Normalized entries',logy=config.logy)
+
+        name = utils.names[ivar]
+        feed_dict = {
+            '{}_truth'.format(name):cluster1[:,ivar],
+            '{}_gen'.format(name):  cluster2[:,ivar]
+        }
+
+        if i == 0:                            
+            fig,gs,_ = utils.HistRoutine(feed_dict,xlabel=config.var,
+                                         binning=config.binning,
+                                         plot_ratio=False,
+                                         reference_name='{}_truth'.format(name),
+                                         ylabel= 'Normalized entries',logy=config.logy)
+        else:
+            fig,gs,_ = utils.HistRoutine(feed_dict,xlabel=config.var,
+                                         reference_name='{}_truth'.format(name),
+                                         plot_ratio=False,
+                                         fig=fig,gs=gs,binning=config.binning,
+                                         ylabel= 'Normalized entries',logy=config.logy)
         ax0 = plt.subplot(gs[0])     
         ax0.set_ylim(top=config.max_y)
         if config.logy == False:
@@ -93,7 +89,7 @@ if __name__ == "__main__":
     parser.add_argument('--data_folder', default='/global/cfs/cdirs/m3929/GSGM', help='Folder containing data and MC files')
     parser.add_argument('--plot_folder', default='../plots', help='Folder to save results')
     parser.add_argument('--config', default='config_cluster.json', help='Training parameters')
-    
+
     parser.add_argument('--model', default='GSGM', help='Type of generative model to load')
     parser.add_argument('--distill', action='store_true', default=False,help='Use the distillation model')
     parser.add_argument('--test', action='store_true', default=False,help='Test if inverse transform returns original data')
@@ -113,16 +109,17 @@ if __name__ == "__main__":
         labels=utils.labels200
         npart=200
 
-    cells,clusters,flavour = utils.DataLoader(flags.data_folder,
-                                              labels=labels,
-                                              npart=npart,
-                                              num_condition=config['NUM_COND'],
-                                              make_tf_data=False)
+    cells, clusters, condition = utils.DataLoader(flags.data_folder,
+                                                  labels=labels,
+                                                  npart=npart,
+                                                  num_condition=config['NUM_COND'],
+                                                  make_tf_data=False)
 
     if flags.test:
-        cells_gen,clusters_gen,flavour_gen = utils.SimpleLoader(flags.data_folder,labels=labels)
+        cells_gen, clusters_gen, condition_gen = utils.SimpleLoader(flags.data_folder,labels=labels)
+        sample_name = "test_mode"
+
     else:
-        
         model_name = config['MODEL_NAME']
         if flags.big:
             model_name+='_big'
@@ -147,82 +144,89 @@ if __name__ == "__main__":
             clusters_gen = []
 
             nsplit = 20 #number of batches, in which to split nevts in utils.py
+            # nsplit = 2 #number of batches, in which to split nevts in utils.py
+
             split_part = np.array_split(clusters,nsplit)
-            for i,split in enumerate(np.array_split(flavour,nsplit)):
+            for i,split in enumerate(np.array_split(condition,nsplit)):
                 #,split_part[i]
                 # genP as input to model.genearet()
                 p,j = model.generate(split,split_part[i])
                 cells_gen.append(p)
                 clusters_gen.append(j)
-    
+
             cells_gen = np.concatenate(cells_gen)
             clusters_gen = np.concatenate(clusters_gen)
-            
-            cells_gen,clusters_gen= utils.ReversePrep(cells_gen,clusters_gen,npart=npart)
-            # clusters_gen = np.concatenate([clusters_gen,np.expand_dims(np.argmax(flavour,-1),-1)],-1)
+
+            print("L 162: ReversePrep Call")
+            cells_gen, clusters_gen = utils.ReversePrep(cells_gen,clusters_gen,npart=npart)
+            # clusters_gen = np.concatenate([clusters_gen,np.expand_dims(np.argmax(condition,-1),-1)],-1)
 
             with h5.File(os.path.join(flags.data_folder,sample_name+'.h5'),"w") as h5f:
                 dset = h5f.create_dataset("cell_features", data=cells_gen)
                 dset = h5f.create_dataset("cluster_features", data=clusters_gen)
-                
+
         else:
             with h5.File(os.path.join(flags.data_folder,sample_name+'.h5'),"r") as h5f:
                 cells_gen = h5f['cell_features'][:]
                 clusters_gen = h5f['cluster_features'][:]
-                
-        flavour_gen = clusters_gen[:,-1]
 
-        assert np.all(flavour_gen == np.argmax(flavour,-1)), 'The order between the cells dont match'
+        condition_gen = clusters_gen[:,-1]
+
+        # assert np.all(condition_gen == np.argmax(condition,-1)), 'The order between the cells dont match'
         clusters_gen = clusters_gen[:,:-1]
-            
-    cells,clusters= utils.ReversePrep(cells,clusters,npart=npart)
-    plot(clusters,clusters_gen,flavour,flavour,title='cluster',
-         nplots=4,plot_folder=flags.plot_folder,is_big=flags.big)
-    
-    print("Calculating metrics")
 
-    with open(sample_name+'.txt','w') as f:
-        for unique in np.unique(np.argmax(flavour,-1)):
-            mask = np.argmax(flavour,-1)== unique
-            print(utils.names[unique])
-            f.write(utils.names[unique])
-            f.write("\n")
-            mean_mass,std_mass = w1m(cells[mask], cells_gen[mask])
-            print("W1M",mean_mass,std_mass)
-            f.write("{:.2f} $\pm$ {:.2f} & ".format(1e3*mean_mass,1e3*std_mass))            
-            mean,std = w1p(cells[mask], cells_gen[mask])
-            print("W1P: ",np.mean(mean),mean,np.mean(std))
-            f.write("{:.2f} $\pm$ {:.2f} & ".format(1e3*np.mean(mean),1e3*np.mean(std)))
-            mean_efp,std_efp = w1efp(cells[mask], cells_gen[mask])
-            print("W1EFP",np.mean(mean_efp),np.mean(std_efp))
-            f.write("{:.2f} $\pm$ {:.2f} & ".format(1e5*np.mean(mean_efp),1e5*np.mean(std_efp)))
-            if flags.big or 'w' in utils.names[unique] or 'z' in utils.names[unique]:
-                #FPND only defined for 30 cells and not calculated for W and Z
-                pass
-            else:
-                fpnd_score = fpnd(cells_gen[mask], cluster_type=utils.names[unique])
-                print("FPND", fpnd_score)
-                f.write("{:.2f} & ".format(fpnd_score))
-                
-            cov,mmd = cov_mmd(cells[mask],cells_gen[mask],num_eval_samples=1000)
-            print("COV,MMD",cov,mmd)
-            f.write("{:.2f} & {:.2f} \\\\".format(cov,mmd))
-            f.write("\n")
-            
+    print("L 179: ReversePrep Call")
+    cells, clusters = utils.ReversePrep(cells,clusters,npart=npart)
 
-        for unique in np.unique(np.argmax(flavour,-1)):
-            mask = np.argmax(flavour,-1)== unique
-            
-            print("Jet "+utils.names[unique])
-            f.write("Jet "+utils.names[unique])
-            f.write("\n")
-            for i in range(clusters_gen.shape[-1]):
-                mean,std=W1(clusters_gen[:,i],clusters[:,i])
-                print("W1J {:.2f}: {:.2f}".format(i,mean[0],std[0]))
-                f.write("{:.3f} $\pm$ {:.3f} & ".format(np.mean(mean),np.mean(std)))
-            f.write("\\ \n")
-        
-    flavour = np.tile(np.expand_dims(flavour,1),(1,cells_gen.shape[1],1)).reshape((-1,flavour.shape[-1]))
+    plot(clusters,clusters_gen,condition,condition,title='cluster',
+         nplots=2,plot_folder=flags.plot_folder,is_big=flags.big)
+
+    # print("Calculating metrics")
+
+    #with open(sample_name+'.txt','w') as f:
+    #    # for unique in np.unique(np.argmax(condition,-1)):
+    #    for icond in condition:
+    #        p_gen = icond[0]  #P_Gen. 1=> Theta_Gen
+    #        mask = np.argmax(condition,-1)== p_gen
+    #        print(utils.names[p_gen])
+    #        f.write(utils.names[p_gen])
+    #        f.write("\n")
+    #        mean_mass,std_mass = w1m(cells[mask], cells_gen[mask])
+    #        print("W1M",mean_mass,std_mass)
+    #        f.write("{:.2f} $\pm$ {:.2f} & ".format(1e3*mean_mass,1e3*std_mass))            
+    #        mean,std = w1p(cells[mask], cells_gen[mask])
+    #        print("W1P: ",np.mean(mean),mean,np.mean(std))
+    #        f.write("{:.2f} $\pm$ {:.2f} & ".format(1e3*np.mean(mean),1e3*np.mean(std)))
+    #        mean_efp,std_efp = w1efp(cells[mask], cells_gen[mask])
+    #        print("W1EFP",np.mean(mean_efp),np.mean(std_efp))
+    #        f.write("{:.2f} $\pm$ {:.2f} & ".format(1e5*np.mean(mean_efp),1e5*np.mean(std_efp)))
+    #        if flags.big or 'w' in utils.names[p_gen] or 'z' in utils.names[p_gen]:
+    #            #FPND only defined for 30 cells and not calculated for W and Z
+    #            pass
+    #        else:
+    #            fpnd_score = fpnd(cells_gen[mask], cluster_type=utils.names[p_gen])
+    #            print("FPND", fpnd_score)
+    #            f.write("{:.2f} & ".format(fpnd_score))
+
+    #        cov,mmd = cov_mmd(cells[mask],cells_gen[mask],num_eval_samples=1000)
+    #        print("COV,MMD",cov,mmd)
+    #        f.write("{:.2f} & {:.2f} \\\\".format(cov,mmd))
+    #        f.write("\n")
+
+
+    #    for unique in np.unique(np.argmax(condition,-1)):
+    #        mask = np.argmax(condition,-1)== unique
+
+    #        print("Jet "+utils.names[unique])
+    #        f.write("Jet "+utils.names[unique])
+    #        f.write("\n")
+    #        for i in range(clusters_gen.shape[-1]):
+    #            mean,std=W1(clusters_gen[:,i],clusters[:,i])
+    #            print("W1J {:.2f}: {:.2f}".format(i,mean[0],std[0]))
+    #            f.write("{:.3f} $\pm$ {:.3f}&".format(np.mean(mean),np.mean(std)))
+    #         f.write("\\ \n")
+
+    condition = np.tile(np.expand_dims(condition,1),(1,cells_gen.shape[1],1)).reshape((-1,condition.shape[-1]))
 
     cells_gen=cells_gen.reshape((-1,3))
     mask_gen = cells_gen[:,2]>0.
@@ -230,15 +234,15 @@ if __name__ == "__main__":
     cells=cells.reshape((-1,3))
     mask = cells[:,2]>0.
     cells=cells[mask]
-    
-    flavour_gen = flavour[mask_gen]
-    flavour = flavour[mask]
+
+    condition_gen = condition[mask_gen]
+    condition = condition[mask]
 
 
     plot(cells,cells_gen,
-         flavour,flavour_gen,
+         condition,condition_gen,
          title='part',
-         nplots=3,
+         nplots=4,
          plot_folder=flags.plot_folder,
          is_big=flags.big)
 

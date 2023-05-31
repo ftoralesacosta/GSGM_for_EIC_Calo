@@ -28,7 +28,7 @@ class GSGM(keras.Model):
         self.factor=factor
         #self.activation = layers.LeakyReLU(alpha=0.01)
         self.num_feat = self.config['NUM_FEAT']
-        self.num_cluster = self.config['NUM_JET']
+        self.num_cluster = self.config['NUM_CLUS']
         self.num_cond = self.config['NUM_COND']
         self.num_embed = self.config['EMBED']
         self.max_part = npart
@@ -85,12 +85,10 @@ class GSGM(keras.Model):
             mask = inputs_mask,
         )
 
-        print(f"inputs = {inputs}")
+        # print(f"inputs = {inputs}")
         
 
         self.model_part = keras.Model(inputs=[inputs,inputs_time,inputs_cluster,inputs_cond,inputs_mask],outputs=outputs)
-        
-        print(f"MODEL = {self.model_part}")
 
         outputs = Resnet(
             inputs_cluster,
@@ -274,7 +272,7 @@ class GSGM(keras.Model):
                                     data_shape=[self.num_cluster],
                                     const_shape = [-1,1]).numpy()
         end = time.time()
-        print("Sampling Particles in {} Events ({} Seconds)".format(cond.shape[0],end - start))
+        print("Sampling Clusters in {} Events ({} Seconds)".format(cond.shape[0],end - start))
 
         nparts = np.expand_dims(np.clip(utils.revert_npart(cluster_info[:,-1],self.max_part),
                                         0,self.max_part),-1)
@@ -292,11 +290,9 @@ class GSGM(keras.Model):
                                  const_shape = self.shape,
                                  mask=tf.convert_to_tensor(mask, dtype=tf.float32)).numpy()
         
-        # parts = np.ones(shape=(cond.shape[0],self.max_part,3))
         end = time.time()
-        print("Time for sampling {} events for CELLS is {} seconds".format(cond.shape[0],end - start))
+        print("Sampling Particles in {} Events ({} Seconds)".format(cond.shape[0],end - start))
         return parts*mask,cluster_info
-
 
 
     @tf.function

@@ -49,8 +49,12 @@ if __name__ == "__main__":
                                                          labels,
                                                          npart,
                                                          hvd.rank(),hvd.size(),
+                                                         config['NUM_CLUS'],
                                                          config['NUM_COND'],
                                                          config['BATCH'])
+
+    # for data in training_data:
+    #     print("Datum of Traning_Data = ",data)
 
     model = GSGM(config=config,npart=npart)
 
@@ -73,8 +77,8 @@ if __name__ == "__main__":
 
         if hvd.rank()==0:print("Loading Teacher from: {}".format(checkpoint_folder))
         checkpoint_folder = '../checkpoints_{}_d{}/checkpoint'.format(model_name,flags.factor)
-        
-        
+
+
     lr_schedule = tf.keras.experimental.CosineDecay(
         initial_learning_rate=config['LR']*hvd.size(),
         decay_steps=config['MAXEPOCH']*int(data_size*0.8/config['BATCH'])
@@ -83,25 +87,25 @@ if __name__ == "__main__":
     opt = hvd.DistributedOptimizer(
         opt, average_aggregated_gradients=True)
 
-        
+
     model.compile(            
         optimizer=opt,
         #run_eagerly=True,
         experimental_run_tf_function=False,
         weighted_metrics=[])
-    
+
     callbacks = [
         hvd.callbacks.BroadcastGlobalVariablesCallback(0),
         hvd.callbacks.MetricAverageCallback(),
         EarlyStopping(patience=100,restore_best_weights=True),
     ]
 
-        
+
     if hvd.rank()==0:
         checkpoint = ModelCheckpoint(checkpoint_folder,mode='auto',
                                      period=1,save_weights_only=True)
         callbacks.append(checkpoint)
-        
+
     
     history = model.fit(
         training_data,
@@ -113,5 +117,3 @@ if __name__ == "__main__":
         verbose=1 if hvd.rank()==0 else 0,
         #steps_per_epoch=1,
     )
-
-    
