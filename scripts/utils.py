@@ -58,7 +58,11 @@ name_translate={
 names = ['P','Theta']
 
 labels200 = {
-    'improved_200cells_FPCD.hdf5':0,
+    # 'improved_200cells_FPCD.hdf5':0,
+    # 'smeared_200cells_FPCD.hdf5':0,
+    # 'smeared_20keV_200cells_FPCD.hdf5':0,
+    'newMIP_smeared_20keV_200cells_FPCD.hdf5':0,
+    # 'splitXY_200cells_FPCD.hdf5':0,
     }
 
 labels1000 = {
@@ -66,7 +70,7 @@ labels1000 = {
 }
 
 # nevts = -1
-nevts = 2_000
+nevts = 10_000
 
 def SetStyle():
     from matplotlib import rc
@@ -271,31 +275,20 @@ def ReversePrep(cells,clusters,npart):
     num_part = cells.shape[1]    
     cells=cells.reshape(-1,cells.shape[-1])
     mask=np.expand_dims(cells[:,3]!=0,-1) #for 4D cell, this is Z
-    print("Cells in ReversePrep = ",cells[:5,:])
-    print("Cells in ReversePrep = ",cells[-5:,:])
-    print("Mask (B) in ReversePrep = ",cells[:5,:])
-    print("Mask (E) in ReversePrep = ",cells[-5:,:])
-    print(f"\nCells shape = {np.shape(cells)}\n")
-    print(f"\nMask shape = {np.shape(cells)}\n")
+
+    # print("mask (b) in reverseprep = ",cells[:5,:])
+    # print("mask (e) in reverseprep = ",cells[-5:,:])
+    # print(f"\ncells shape = {np.shape(cells)}\n")
 
     def _revert(x,name='cluster'):    
         x = x*data_dict['std_{}'.format(name)] + data_dict['mean_{}'.format(name)]
         x = revert_logit(x)
-        print(data_dict['max_{}'.format(name)],data_dict['min_{}'.format(name)])
         x = x * (np.array(data_dict['max_{}'.format(name)]) -data_dict['min_{}'.format(name)]) + data_dict['min_{}'.format(name)]
         return x
         
-    print(f"L288 Cells before _revert (Last5)= {cells[-5]}")
-    print(f"Cell Shape before _revert or mask = {np.shape(cells)}")
-
-
     cells = _revert(cells,'cell')
-    print(f"Cell Shape after _revert after mask = {np.shape(cells)}")
-    print(f"Cells after _revert after mask(Last5)= {cells[-5]}")
 
     cells = (cells*mask).reshape(clusters.shape[0],num_part,-1)
-    print(f"Cell Shape before _revert after mask = {np.shape(cells)}")
-    print(f"Cells before _revert after mask(Last5)= {cells[-5]}")
 
     clusters = _revert(clusters,'cluster')
     clusters[:,-1] = np.round(clusters[:,-1]) #num cells
@@ -361,10 +354,13 @@ def DataLoader(data_path,labels,
 
         if save_json:
             mask = cells[:,-1] == 1 #saves array of BOOLS instead of ints
-            print(f"MASKED {np.shape(cells[mask])[0]} / {len(mask)} in _preprocess") 
+            print(f"L 357: Masked {np.shape(cells[mask])[0]} / {len(mask)} cells") 
+
             data_dict = {
                 'max_cluster':np.max(clusters[:,:],0).tolist(),
                 'min_cluster':np.min(clusters[:,:],0).tolist(),
+
+                # With Mask
                 'max_cell':np.max(cells[mask][:,:-1],0).tolist(), #-1 avoids mask
                 'min_cell':np.min(cells[mask][:,:-1],0).tolist(),
 
@@ -402,9 +398,10 @@ def DataLoader(data_path,labels,
         cells[:,:-1]= np.ma.divide(cells[:,:-1]-data_dict['mean_cell'],data_dict['std_cell']).filled(0)
 
         cells = cells.reshape(clusters.shape[0],num_part,-1)
+
         print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}")
         print(f"\nL 381: Cells in DataLoader = \n{cells[0,15:20,:]}")
-       #print(f"\nL 382: Clusters in DataLoader = {clusters}\n")
+
         return cells.astype(np.float32),clusters.astype(np.float32)
 
 
@@ -466,15 +463,12 @@ def DataLoader(data_path,labels,
             tf_cond = tf.data.Dataset.from_tensor_slices(cond)
             mask = np.expand_dims(cells[:,:,-1],-1)
 
-            # print(f"Mask in _prepare_batches = ", mask)
-            # print(f"Mask in _prepare_batches = ", mask[-10:])
-
-            print(f"\n\nWhat Should be masked cells = ", cells[0,:-10,:])
             masked = cells[:,:,:-1]*mask
             masked[masked[:,:,:] == -0.0] = 0.0
 
-            print(f"Cells in _prepare_batches = \n",masked[10,:10,:])
-            print(f"Cells in _prepare_batches = \n",masked[10,-10:,:])
+            # Really good check on mask and data before training
+            print(f" First Cells in _prepare_batches = \n",masked[10,:10,:])
+            print(f"Last Cells in _prepare_batches = \n",masked[10,-10:,:])
 
             tf_part = tf.data.Dataset.from_tensor_slices(masked)
             tf_mask = tf.data.Dataset.from_tensor_slices(mask)
