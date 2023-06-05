@@ -3,10 +3,8 @@ from torch.utils.data import Dataset, DataLoader
 import h5py
 import numpy as np
 from sklearn.metrics import roc_curve, auc
-# import torch.nn.functional as F
 
 nevts = 10_000
-
 
 # Define a custom dataset class to load data from HDF5 files
 class HDF5Dataset(Dataset):
@@ -33,11 +31,10 @@ class HDF5Dataset(Dataset):
                 self.data = self.data[:, 2:] #removes genP, genTheta
                 print(f"Shape of Cluster Data After Slice= {np.shape(self.data)}")
 
-            print(f"Dataset {dset_name} Shape {np.shape(self.data)})"
+            print(f"Dataset {dset_name} Shape {np.shape(self.data)}")
 
-            # Assign label for classifier. 0 or 1
+            # Assign label for classifier. 0 or 1 (argument)
             self.labels = np.full(np.shape(self.data)[0], label)
-            print(f"L:40 Labels in DataLoader = { self.labels }")
 
     def __len__(self):
         return len(self.labels)
@@ -49,6 +46,7 @@ class HDF5Dataset(Dataset):
 
 
 class ClassifierModel(torch.nn.Module):
+
     def __init__(self, input_size, hidden_size1, hidden_size2, num_classes):
         super(ClassifierModel, self).__init__()
         self.fc1 = torch.nn.Linear(input_size, hidden_size1)
@@ -60,6 +58,7 @@ class ClassifierModel(torch.nn.Module):
         x = torch.relu(self.fc1(x.float()))
         x = torch.relu(self.fc2(x))
         x = self.fc3(x)
+        # x = torch.softmax(self.fc3(x),dim=1)
         return x
 
 
@@ -74,16 +73,15 @@ batch_size = 64
 learning_rate = 0.001
 num_epochs = 100
 
-# Load the datasets
 
 continuous = True
 
+# Load the datasets
 geant4_dataset = HDF5Dataset('G4_Discrete.h5', "hcal_cells", 1)
 diffusion_dataset = HDF5Dataset('GSGM_Discrete.h5', "cell_features", 0)
 
 if continuous:
-    geant4_dataset = HDF5Dataset('newMIP_smeared_20keV_200cells_FPCD.hdf5', 
-                                 "hcal_cells", 1)
+    geant4_dataset = HDF5Dataset('G4_smeared.h5', "hcal_cells", 1)
     diffusion_dataset = HDF5Dataset('GSGM.h5', "cell_features", 0)
 
 # Combine datasets
@@ -96,7 +94,9 @@ train_dataset, test_dataset = torch.utils.data.random_split(combined_dataset, [t
 
 # Create data loaders
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+# test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
 
 # Get the input size from the dataset
 input_size = diffusion_dataset[0][0].shape[0]*diffusion_dataset[0][0].shape[1]
@@ -127,8 +127,13 @@ for epoch in range(num_epochs):
         labels = labels.to(device)
 
         # Forward pass
-        outputs = model(inputs)  # Predicts the labels
+        outputs = model(inputs)
         loss = torch.nn.functional.cross_entropy(outputs, labels)
+
+
+        # print(f"Outputs = {outputs}")
+        predicted_probs = torch.softmax(outputs, dim=1)  # Apply softmax to get probabilities
+        # print(f"Predicted Probabilities: {predicted_probs}")
 
         # Backward and optimize
         optimizer.zero_grad()
@@ -148,6 +153,7 @@ with torch.no_grad():
         inputs = inputs.to(device)
         outputs = model(inputs)
         probs = torch.softmax(outputs, dim=1)[:, 1]
+        # print(f"\n\nProbabilities = { probs }")
         scores.extend(probs.cpu().numpy())
         true_labels.extend(labels.numpy())
 
@@ -156,6 +162,10 @@ scores = np.array(scores)
 true_labels = np.array(true_labels)
 fpr, tpr, _ = roc_curve(true_labels, scores)
 auc_score = auc(fpr, tpr)
+np.save("scores.npy",scores)
+np.save("true_labels.npy",true_labels)
+np.save("fpr.npy",fpr)
+np.save("tpr.npy",tpr)
 
 # Plot ROC curve or perform further analysis as needed
 # (code for plotting ROC curve and computing AUC is not included here)
