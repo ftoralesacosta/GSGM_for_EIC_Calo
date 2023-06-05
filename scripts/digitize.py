@@ -20,18 +20,32 @@ def get_bin_edges(g4_cell_data):
     return centers, edges
 
 
+def get_bin_width(centers):
+
+    # Assumes fixed-width binning, avoids [0] edgecase
+    width = np.round(centers[2] - centers[1],2)
+    
+    return width
+
+
 def get_bin_dict(geant4_name, var_str, nevts = 100_000):
 
     bin_dict = {}
+
     with h5py.File(geant4_name, 'r') as g4:
 
-        for var in range(1,4):
+        for var in range(1,4): #Skips E, should be cont.
 
             g4_data = g4['hcal_cells'][:nevts,:,var]
+
             centers, edges = get_bin_edges(g4_data)
+            width = get_bin_width(centers) # single float
         
             bin_dict[f"centers{var_str[var]}"] = centers
             bin_dict[f"edges{var_str[var]}"] = edges 
+            bin_dict[f"width{var_str[var]}"] = width 
+
+        bin_dict[f"widthE"] = 2e-5 #20keV fake width, for smear.py
 
         print("\nL35: Dictionary Keys = ",bin_dict.keys())
 
@@ -49,7 +63,6 @@ def get_digits_dict(continuous_file, dset_name, bin_dict):
         digit_dict[f"digits{var_str[var]}"] = digits - 1  # -1 for 0th index
 
     return digit_dict
-
 
 
 #  ======= MAIN ======
@@ -96,6 +109,7 @@ ncluster_var = np.shape(continuous_file[cluster_name])[1]
 # ncells = 200
 # nvar = 4
 # ncluster_var = 2
+
 chunk_size = 100
 
 # Testing
