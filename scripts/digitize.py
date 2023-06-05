@@ -38,19 +38,18 @@ def get_bin_dict(geant4_name, var_str, nevts = 100_000):
     return bin_dict
 
 
-def get_digits_dict(continuous_name, dset_name, bin_dict):
+def get_digits_dict(continuous_file, dset_name, bin_dict):
 
     digit_dict = {}
 
-    with h5py.File(continuous_name,'r') as continuous_file:
-
-        for var in range(1,4):
-            continuous_data = continuous_file[dset_name][:,:,var]
-            digits = np.digitize(continuous_data,bin_dict[f"edges{var_str[var]}"])
-            print("Sample Bin # ",var_str[var],": ",digits[100,:10])
-            digit_dict[f"digits{var_str[var]}"] = digits - 1  # -1 for 0th index
+    for var in range(1,4):
+        continuous_data = continuous_file[dset_name][:,:,var]
+        digits = np.digitize(continuous_data,bin_dict[f"edges{var_str[var]}"])
+        print("Sample Bin # ",var_str[var],": ",digits[100,:10])
+        digit_dict[f"digits{var_str[var]}"] = digits - 1  # -1 for 0th index
 
     return digit_dict
+
 
 
 #  ======= MAIN ======
@@ -81,11 +80,13 @@ var_str = ["E","X","Y","Z"]
 # Get Cell-Binning from Discrete G4
 bin_dict = get_bin_dict(geant4_name, var_str)
 
-# Get what bin each datum belongs in
-digit_dict = get_digits_dict(continuous_name, dset_name, bin_dict)
-
-
+#Load the contituous file you want digitized
 continuous_file = h5py.File(continuous_name, "r")
+
+# Get what bin each datum belongs in
+digit_dict = get_digits_dict(continuous_file, dset_name, bin_dict)
+
+#Copy the structure of the continuous File
 nevents = np.shape(continuous_file[dset_name])[0]
 ncells = np.shape(continuous_file[dset_name])[1]
 nvar = np.shape(continuous_file[dset_name])[2]
