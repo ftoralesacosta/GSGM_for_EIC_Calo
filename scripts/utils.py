@@ -58,11 +58,7 @@ name_translate={
 names = ['P','Theta']
 
 labels200 = {
-    # 'improved_200cells_FPCD.hdf5':0,
-    # 'smeared_200cells_FPCD.hdf5':0,
-    # 'smeared_20keV_200cells_FPCD.hdf5':0,
     'newMIP_smeared_20keV_200cells_FPCD.hdf5':0,
-    # 'splitXY_200cells_FPCD.hdf5':0,
     }
 
 labels1000 = {
@@ -85,7 +81,6 @@ def SetStyle():
 
     # #
     mpl.rcParams.update({'font.size': 19})
-    #mpl.rcParams.update({'legend.fontsize': 18})
     mpl.rcParams['text.usetex'] = False
     mpl.rcParams.update({'xtick.labelsize': 18}) 
     mpl.rcParams.update({'ytick.labelsize': 18}) 
@@ -95,9 +90,8 @@ def SetStyle():
     
     import matplotlib.pyplot as plt
     import mplhep as hep
-    # hep.set_style(hep.style.CMS)
-    # mplhep.style.use(hep.style.CMS)
     hep.style.use("CMS") 
+
 
 def SetGrid(ratio=True):
     fig = plt.figure(figsize=(9, 9))
@@ -107,8 +101,6 @@ def SetGrid(ratio=True):
     else:
         gs = gridspec.GridSpec(1, 1)
     return fig,gs
-
-
 
         
 def PlotRoutine(feed_dict,xlabel='',ylabel='',reference_name='gen'):

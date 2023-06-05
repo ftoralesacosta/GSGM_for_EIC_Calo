@@ -49,8 +49,6 @@ with h5py.File(f'../test_smear.h5', 'w') as newfile:
         g4_data = g4['hcal_cells'][:nevents,:,var]
 
         smears = get_smears(width, np.shape(g4_data))
-
-
         dset[:nevents,:,var] = (g4_data + smears)*MASK
 
 
