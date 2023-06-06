@@ -2,4 +2,9 @@
 *.h5
 *.txt
 *.json
+*.pdf
+*.npy
+*.ipynb
+.ipynb_checkpoints
+__pycache__
 
