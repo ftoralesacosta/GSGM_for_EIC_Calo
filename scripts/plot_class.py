@@ -18,48 +18,44 @@ class PlottingConfig():
 
 
     def get_name(self):
-        if self.name == 'jet':
+        if self.name == 'cluster':
             name_translate = [
-                r'Jet p$_T$ [GeV]',
-                r'Jet $\eta$',
-                r'Jet mass [GeV]',
-                r'Jet particle multiplicity',
+                r'Cluster $\sum E_\mathrm{cell}$ [GeV]',
+                r'Cluster cell multiplicity',
             ]
         else:
             name_translate = [
-                r'All particles $\eta_{rel}$',
-                r'All particles $\phi_{rel}$',
-                r'All particles p$_{Trel}$',
+                r'All cells $E$',
+                r'All cells $X$',
+                r'All cells $Y$',
+                r'All cells $Z$',
             ]
 
         return name_translate[self.idx]
     
     def get_binning(self):
-        if self.name == 'jet':
+        if self.name == 'cluster':
             binning_dict = {
-                0 : np.linspace(700,1800,15),
-                1 : np.linspace(-2.,2.,15),
-                2 : np.linspace(50,200,15),
-                3 : np.linspace(10,30,15),                
+                0 : np.linspace(0.0,2.5,10),
+                1 : np.linspace(0,200,200),
             }
             if self.big:
-                binning_dict[3] = np.linspace(5,150,20)
+                binning_dict[1] = np.linspace(0,1000,1000)
         else:
             binning_dict = {
-                0 : np.linspace(-0.5,0.5,20),
-                1 : np.linspace(-0.5,0.5,20),
-                2 : np.linspace(0,0.8,20),
+                0 : np.linspace(0.0,0.05,100),
+                1 : np.linspace(-2700,2700,55),
+                2 : np.linspace(-2700,2700,55),
+                3 : np.linspace(3800,5000,54),                
             }
             
         return binning_dict[self.idx]
 
     def get_logy(self):
-        if self.name == 'jet':
+        if self.name == 'cluster':
             binning_dict = {
-                0 : False,
+                0 : True,
                 1 : False,
-                2 : False,
-                3 : False,                
             }
 
         else:
@@ -67,6 +63,7 @@ class PlottingConfig():
                 0 : False,
                 1 : False,
                 2 : False,
+                3 : False,
             }
             
         return binning_dict[self.idx]
@@ -74,12 +71,10 @@ class PlottingConfig():
 
 
     def get_y(self):
-        if self.name == 'jet':
+        if self.name == 'cluster':
             binning_dict = {
                 0 : 0.1,
                 1 : 0.7,
-                2 : 0.07,
-                3 : 5.0,                
             }
             if self.big:
                 binning_dict[3] = 0.5

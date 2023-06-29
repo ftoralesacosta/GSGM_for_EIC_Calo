@@ -17,19 +17,13 @@ line_style = {
     'gen':'-',
     'Geant':'dotted',
     'GSGM':'-',
-    'q_truth':'-',
-    'q_gen':'dotted',
-    'g_truth':'-',
-    'g_gen':'dotted',
-    't_truth':'-',
-    't_gen':'dotted',
-    'w_truth':'-',
-    'w_gen':'dotted',
-    'z_truth':'-',
-    'z_gen':'dotted',
+    'P_truth':'-',
+    'P_gen':'dotted',
+    'Theta_truth':'-',
+    'Theta_gen':'dotted',
 
-    't_gen_d64':'dotted',
-    't_gen_d256':'dotted',
+    # 't_gen_d64':'dotted',
+    # 't_gen_d256':'dotted',
     
 }
 
@@ -39,20 +33,10 @@ colors = {
     'Geant':'black',
     'GSGM':'#7570b3',
 
-    'q_truth':'#7570b3',
-    'q_gen':'#7570b3',
-    'g_truth':'#d95f02',
-    'g_gen':'#d95f02',
-    't_truth':'#1b9e77',
-    't_gen':'#1b9e77',
-    'w_truth':'#e7298a',
-    'w_gen':'#e7298a',
-    'z_truth':'black',
-    'z_gen':'black',
-
-    't_gen_d64':'red',
-    't_gen_d256':'blue',
-
+    'P_truth':'#7570b3',
+    'P_gen':'#7570b3',
+    'Theta_truth':'#d95f02',
+    'Theta_gen':'#d95f02',
 }
 
 name_translate={
@@ -61,37 +45,28 @@ name_translate={
     'Geant':'Geant 4',
     'GSGM':'Graph Diffusion',
 
-    'q_truth':'Sim.: q',
-    'q_gen':'FPCD: q',
-    'g_truth':'Sim.: g',
-    'g_gen':'FPCD: g',
-    't_truth':'Sim.: top',
-    't_gen':'FPCD: top',
-    'w_truth':'Sim.: W',
-    'w_gen':'FPCD: W',
-    'z_truth':'Sim.: Z',
-    'z_gen':'FPCD: Z',
+    'P_truth':'Sim.: P',
+    'P_gen':'FPCD: P',
+    'Theta_truth':'Sim.: Theta',
+    'Theta_gen':'FPCD: Theta',
 
-    't_gen_d64':'FPCD: top 8 steps',
-    't_gen_d256':'FPCD: top 2 steps',
+    # 't_gen_d64':'FPCD: top 8 steps',
+    # 't_gen_d256':'FPCD: top 2 steps',
     }
 
-names = ['g','q','t','w','z']
+# names = ['g','q','t','w','z']
+names = ['P','Theta']
 
 labels200 = {
-    'truncated_200cells_FPCD.hdf5':0,
-}
+    'newMIP_smeared_20keV_200cells_FPCD.hdf5':0,
+    }
 
 labels1000 = {
     'truncated_1000cells_FPCD.hdf5':0,
 }
 
 # nevts = -1
-# nevts = 10
-nevts = 100
-num_classes = 5
-num_classes_eval = 5
-
+nevts = 10_000
 
 def SetStyle():
     from matplotlib import rc
@@ -106,7 +81,6 @@ def SetStyle():
 
     # #
     mpl.rcParams.update({'font.size': 19})
-    #mpl.rcParams.update({'legend.fontsize': 18})
     mpl.rcParams['text.usetex'] = False
     mpl.rcParams.update({'xtick.labelsize': 18}) 
     mpl.rcParams.update({'ytick.labelsize': 18}) 
@@ -116,9 +90,8 @@ def SetStyle():
     
     import matplotlib.pyplot as plt
     import mplhep as hep
-    # hep.set_style(hep.style.CMS)
-    # mplhep.style.use("CMS")
     hep.style.use("CMS") 
+
 
 def SetGrid(ratio=True):
     fig = plt.figure(figsize=(9, 9))
@@ -128,7 +101,6 @@ def SetGrid(ratio=True):
     else:
         gs = gridspec.GridSpec(1, 1)
     return fig,gs
-
 
         
 def PlotRoutine(feed_dict,xlabel='',ylabel='',reference_name='gen'):
@@ -202,6 +174,7 @@ def HistRoutine(feed_dict,
                 plot_ratio= True,
                 idx = None,
                 label_loc='best'):
+
     assert reference_name in feed_dict.keys(), "ERROR: Don't know the reference distribution"
 
     if fig is None:
@@ -220,10 +193,20 @@ def HistRoutine(feed_dict,
     maxy = np.max(reference_hist)
 
     for ip,plot in enumerate(feed_dict.keys()):
-        print(f"Plot val = {plot}")
-        print(f"Color = {colors[plot]}")
-        print(f"Shape of feed = {np.shape(feed_dict[plot])}\n")
-        dist,_,_=ax0.hist(feed_dict[plot],bins=binning,label=name_translate[plot],linestyle=line_style[plot],color=colors[plot],density=True,histtype="step")
+
+        # print("Plot",ip,": Shape of feed_dict = ",np.shape(feed_dict[plot]))
+        # print("Feed Dict Keys = ",feed_dict.keys())
+        # print("Name translate keys = ",name_translate.keys())
+        # print("Line_style keys = ",line_style.keys())
+        # print("Colors keys = ",colors.keys())
+
+        dist,_,_=ax0.hist(feed_dict[plot], bins=binning, 
+                          label=name_translate[plot],
+                          linestyle=line_style[plot],
+                          color=colors[plot], 
+                          density=True,
+                          histtype="step")
+
         if plot_ratio:
             if reference_name!=plot:
                 ratio = 100*np.divide(reference_hist-dist,reference_hist)
@@ -262,10 +245,9 @@ def SaveJson(save_file,data):
 
 def revert_npart(npart,max_npart):
 
-    #Revert the preprocessing to recover the particle multiplicity
+    #Revert the preprocessing to recover the cell multiplicity
     alpha = 1e-6
     data_dict = LoadJson('preprocessing_{}.json'.format(max_npart))
-    # data_dict = LoadJson('preprocessing_calo.json')
     x = npart*data_dict['std_cluster'][-1] + data_dict['mean_cluster'][-1]
     x = revert_logit(x)
     x = x * (data_dict['max_cluster'][-1]-data_dict['min_cluster'][-1]) + data_dict['min_cluster'][-1]
@@ -278,79 +260,81 @@ def revert_logit(x):
     x = exp/(1+exp)
     return (x-alpha)/(1 - 2*alpha)                
 
-def ReversePrep(particles,jets,npart):
+def ReversePrep(cells,clusters,npart):
 
     alpha = 1e-6
     data_dict = LoadJson('preprocessing_{}.json'.format(npart))
-    # data_dict = LoadJson('preprocessing_calo.json'.format(npart))
-    num_part = particles.shape[1]    
-    print(f"UTILS L: 287 Shape = {np.shape(particles)}")
-    particles=particles.reshape(-1,particles.shape[-1])
-    print(f"UTILS L: 289 Shape = {np.shape(particles)}")
-    # mask=np.expand_dims(particles[:,2]!=0,-1)
-    mask=np.expand_dims(particles[:,3]!=0,-1)
+    num_part = cells.shape[1]    
+    cells=cells.reshape(-1,cells.shape[-1])
+    mask=np.expand_dims(cells[:,3]!=0,-1) #for 4D cell, this is Z
+
+    # print("mask (b) in reverseprep = ",cells[:5,:])
+    # print("mask (e) in reverseprep = ",cells[-5:,:])
+    # print(f"\ncells shape = {np.shape(cells)}\n")
+
     def _revert(x,name='cluster'):    
         x = x*data_dict['std_{}'.format(name)] + data_dict['mean_{}'.format(name)]
         x = revert_logit(x)
-        #print(data_dict['max_{}'.format(name)],data_dict['min_{}'.format(name)])
         x = x * (np.array(data_dict['max_{}'.format(name)]) -data_dict['min_{}'.format(name)]) + data_dict['min_{}'.format(name)]
         return x
         
-    particles = _revert(particles,'cell')
-    jets = _revert(jets,'cluster')
-    jets[:,3] = np.round(jets[:,3]) #number of constituents
+    cells = _revert(cells,'cell')
 
-    return (particles*mask).reshape(jets.shape[0],num_part,-1),jets
-    # return (particles*mask).reshape(jets.shape[0],num_part,-1),jets
-    # particles[:,2] = 1.0 - particles[:,2]
+    cells = (cells*mask).reshape(clusters.shape[0],num_part,-1)
 
+    clusters = _revert(clusters,'cluster')
+    clusters[:,-1] = np.round(clusters[:,-1]) #num cells
 
-def SimpleLoader(data_path,labels):
-    particles = []
-    jets = []
+    return cells,clusters
+
+def SimpleLoader(data_path,
+                 labels,
+                 ncluster_var = 2,
+                 num_condition = 2):
+
+    cells = []
+    clusters = []
+    cond = []
 
     for label in labels:
         #if 'w' in label or 'z' in label: continue #no evaluation for w and z
         with h5.File(os.path.join(data_path,label),"r") as h5f:
             ntotal = h5f['cluster'][:].shape[0]
-            particle = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
-            print(f"SimpleLoader File {label}, Particle = ",particle)
-            jet = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
-            jet = np.concatenate([jet,labels[label]*np.ones(shape=(jet.shape[0],1),dtype=np.float32)],-1)
+            # ntotal = int(nevts)
+            cell = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
+            cluster = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
+            cluster = np.concatenate([cluster,labels[label]*np.ones(shape=(cluster.shape[0],1),dtype=np.float32)],-1)
 
-            particles.append(particle)
-            jets.append(jet)
+            cells.append(cell)
+            clusters.append(cluster)
 
-    particles = np.concatenate(particles)
-    jets = np.concatenate(jets)
-    particles,jets = shuffle(particles,jets, random_state=0)
-    
+    cells = np.concatenate(cells)
+    clusters = np.concatenate(clusters)
 
-    # mask = np.sqrt(particles[:,:,0]**2 + particles[:,:,1]**2) < 0.8 #eta looks off
-    # particles*=np.expand_dims(mask,-1)
+    #Split Conditioned Features and Cluster Training Features
+    cond = clusters[:,:num_condition]#GenP, GenTheta 
+    clusters = clusters[:,ncluster_var:] #ClusterSum, N_Hits
 
-    #FIXME: Want to condition the model on input genP data
-    cond = to_categorical(jets[:nevts,-1], num_classes=num_classes)
-    mask = np.expand_dims(particles[:nevts,:,-1],-1)
-    
-    return particles[:nevts,:,:-1],jets[:nevts,:-1],cond
-    # return particles[:nevts,:,:-1]*mask,jets[:nevts,:-1],cond
+    cells,clusters = shuffle(cells,clusters, random_state=0)
 
-    
+    mask = np.expand_dims(cells[:nevts,:,-1],-1)
+
+    return cells[:nevts,:,:-1]*mask,clusters[:nevts],cond[:nevts]
+
+
 def DataLoader(data_path,labels,
                npart,
                rank=0,size=1,
+               ncluster_var=2,
+               num_condition=2,#genP,genTheta
                batch_size=64,make_tf_data=True):
-               # batch_size=1,make_tf_data=True):
-    particles = []
-    jets = []
+    cells = []
+    clusters = []
 
-    def _preprocessing(particles,jets,save_json=False):
-        num_part = particles.shape[1]
-        # mask = np.sqrt(particles[:,:,0]**2 + particles[:,:,1]**2) < 0.8 #eta looks weird
-        # particles*=np.expand_dims(mask,-1)
+    def _preprocessing(cells,clusters,save_json=False):
+        num_part = cells.shape[1]
 
-        particles=particles.reshape(-1,particles.shape[-1]) #flatten
+        cells=cells.reshape(-1,cells.shape[-1]) #flattens D0 and D1
 
         def _logit(x):                            
             alpha = 1e-6
@@ -358,112 +342,136 @@ def DataLoader(data_path,labels,
             return np.ma.log(x/(1-x)).filled(0)
 
         #Transformations
-        # particles[:,2] = 1.0 - particles[:,2]
 
         if save_json:
+            mask = cells[:,-1] == 1 #saves array of BOOLS instead of ints
+            print(f"L 357: Masked {np.shape(cells[mask])[0]} / {len(mask)} cells") 
+
             data_dict = {
-                'max_cluster':np.max(jets[:,:-1],0).tolist(),
-                'min_cluster':np.min(jets[:,:-1],0).tolist(),
-                'max_cell':np.max(particles[:,:-1],0).tolist(),
-                'min_cell':np.min(particles[:,:-1],0).tolist(),
+                'max_cluster':np.max(clusters[:,:],0).tolist(),
+                'min_cluster':np.min(clusters[:,:],0).tolist(),
+
+                # With Mask
+                'max_cell':np.max(cells[mask][:,:-1],0).tolist(), #-1 avoids mask
+                'min_cell':np.min(cells[mask][:,:-1],0).tolist(),
+
+                # No Mask
+                # 'max_cell':np.max(cells[:,:-1],0).tolist(),
+                # 'min_cell':np.min(cells[:,:-1],0).tolist(),
+
             }                
             
             SaveJson('preprocessing_{}.json'.format(npart),data_dict)
         else:
             data_dict = LoadJson('preprocessing_{}.json'.format(npart))
 
-        #normalize
-        jets[:,:-1] = np.ma.divide(jets[:,:-1]-data_dict['min_cluster'],np.array(data_dict['max_cluster'])- data_dict['min_cluster']).filled(0)        
-        particles[:,:-1]= np.ma.divide(particles[:,:-1]-data_dict['min_cell'],np.array(data_dict['max_cell'])- data_dict['min_cell']).filled(0)
 
-        jets[:,:-1] = _logit(jets[:,:-1])
-        particles[:,:-1] = _logit(particles[:,:-1])
+        #normalize
+        clusters[:,:] = np.ma.divide(clusters[:,:]-data_dict['min_cluster'],np.array(data_dict['max_cluster'])- data_dict['min_cluster']).filled(0)        
+        cells[:,:-1]= np.ma.divide(cells[:,:-1]-data_dict['min_cell'],np.array(data_dict['max_cell'])- data_dict['min_cell']).filled(0)
+
+        # make gaus-like. 
+        clusters = _logit(clusters)
+        cells[:,:-1] = _logit(cells[:,:-1])
+
         if save_json:
-            mask = particles[:,-1]
-            mean_cell = np.average(particles[:,:-1],axis=0,weights=mask)
-            data_dict['mean_cluster']=np.mean(jets[:,:-1],0).tolist()
-            data_dict['std_cluster']=np.std(jets[:,:-1],0).tolist()
+            mask = cells[:,-1]
+            mean_cell = np.average(cells[:,:-1],axis=0,weights=mask)
+            data_dict['mean_cluster']=np.mean(clusters,0).tolist()
+            data_dict['std_cluster']=np.std(clusters,0).tolist()
             data_dict['mean_cell']=mean_cell.tolist()
-            data_dict['std_cell']=np.sqrt(np.average((particles[:,:-1] - mean_cell)**2,axis=0,weights=mask)).tolist()                        
+            data_dict['std_cell']=np.sqrt(np.average((cells[:,:-1] - mean_cell)**2,axis=0,weights=mask)).tolist()                        
+
             SaveJson('preprocessing_{}.json'.format(npart),data_dict)
-        
-            
-        jets[:,:-1] = np.ma.divide(jets[:,:-1]-data_dict['mean_cluster'],data_dict['std_cluster']).filled(0)
-        particles[:,:-1]= np.ma.divide(particles[:,:-1]-data_dict['mean_cell'],data_dict['std_cell']).filled(0)
-        
-        particles = particles.reshape(jets.shape[0],num_part,-1)
-        return particles.astype(np.float32),jets.astype(np.float32)
-            
-            
+
+
+        clusters = np.ma.divide(clusters-data_dict['mean_cluster'],data_dict['std_cluster']).filled(0)
+        cells[:,:-1]= np.ma.divide(cells[:,:-1]-data_dict['mean_cell'],data_dict['std_cell']).filled(0)
+
+        cells = cells.reshape(clusters.shape[0],num_part,-1)
+
+        print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}")
+        print(f"\nL 381: Cells in DataLoader = \n{cells[0,15:20,:]}")
+
+        return cells.astype(np.float32),clusters.astype(np.float32)
+
+
     for label in labels:
-        
+
         with h5.File(os.path.join(data_path,label),"r") as h5f:
             ntotal = h5f['cluster'][:].shape[0]
+            # ntotal = int(nevts)
 
             if make_tf_data:
-                particle = h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)
-                print("Particle from H5 = ",particle)
-                jet = h5f['cluster'][rank:int(0.7*ntotal):size].astype(np.float32)
-                jet = np.concatenate([jet,labels[label]*np.ones(shape=(jet.shape[0],1),dtype=np.float32)],-1)
+                cell=h5f['hcal_cells'][rank:int(0.7*ntotal):size].astype(np.float32)
+                cluster=h5f['cluster'][rank:int(0.7*ntotal):size].astype(np.float32)
+
             else:
                 #load evaluation data
-                #if 'w' in label or 'z' in label: continue #no evaluation for w and z
-                particle = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
-                jet = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
-                jet = np.concatenate([jet,labels[label]*np.ones(shape=(jet.shape[0],1),dtype=np.float32)],-1)           
+                cell = h5f['hcal_cells'][int(0.7*ntotal):].astype(np.float32)
+                cluster = h5f['cluster'][int(0.7*ntotal):].astype(np.float32)
 
-            particles.append(particle)
-            jets.append(jet)
+            cells.append(cell)
+            clusters.append(cluster)
 
-    particles = np.concatenate(particles)
-    jets = np.concatenate(jets)
-    particles,jets = shuffle(particles,jets, random_state=0)
-    
-    data_size = jets.shape[0]
-    print("Particles = ",particles[:10])
-    particles,jets = _preprocessing(particles,jets)    
-    print("PreProcessed Particles = ",particles[:10])
-    
-    
-    # if rank==0:print("Training events: {}, Test Events: {} Validation Events: {}".format(train_clusters.shape[0],test_clusters.shape[0],val_clusters.shape[0]))
-    # print(np.max(train_clusters,0),np.min(train_clusters,0))
-    # print(np.mean(train_clusters,0),np.std(train_clusters,0))
-    # print(np.sum(train_clusters[:,0]>5.)/train_clusters.shape[0])
+    cells = np.concatenate(cells)
+    clusters = np.concatenate(clusters)
 
-    # print(np.max(train_cells,0),np.min(train_cells,0))
-    # print(np.sum(train_cells[:,:,0]>6.)/(150*train_clusters.shape[0]))
-    # print(np.mean(train_cells,0),np.std(train_cells,0))
-    # print(np.max(test_cells,0),np.min(test_cells,0))
-     # input()
+    #Split Cluster Data into Input and Condition
+    cond = clusters[:,:num_condition]#GenP, GenTheta 
+    clusters = clusters[:,ncluster_var:] #ClusterSum, N_Hits
+
+
+    #Additional Pre-Processing, Log10 of E
+    cells[:,:,0] = np.log10(cells[:,:,0]) #Log10(CellE)
+    cond[:,0] = np.log10(cond[:,0]) #Log10 of GenP #Make sure maks is applied in _preprocess
+    # clusters = np.log10(clusters[:,0]) # ClusterSumE, after cond split
+
+    cells,clusters,cond = shuffle(cells, clusters, cond, random_state=0)
+    cells,clusters = _preprocessing(cells, clusters, save_json=True) 
+    # cells,clusters = _preprocessing(cells,clusters,save_json=False) 
+    
+
+    # Do Train/Test Split, or just return data
+    data_size = clusters.shape[0]
+
     if make_tf_data:
-        train_cells = particles[:int(0.8*data_size)]
-        train_clusters = jets[:int(0.8*data_size)]
+ 
+        train_cells = cells[:int(0.8*data_size)] #This is 80% train (whcih 70% of total)
+        train_clusters = clusters[:int(0.8*data_size)]
+        train_cond = cond[:int(0.8*data_size)]
         
-        test_cells = particles[int(0.8*data_size):]
-        test_clusters = jets[int(0.8*data_size):]
+        test_cells = cells[int(0.8*data_size):]
+        test_clusters = clusters[int(0.8*data_size):]
+        test_cond = cond[int(0.8*data_size):]
         
     
-        def _prepare_batches(particles,jets):
+        def _prepare_batches(cells,clusters,cond):
             
-            nevts = jets.shape[0]
-            tf_cluster = tf.data.Dataset.from_tensor_slices(jets[:,:-1])
-            cond = to_categorical(jets[:,-1], num_classes=num_classes) 
+            nevts = clusters.shape[0]
+            tf_cluster = tf.data.Dataset.from_tensor_slices(clusters)
+
             tf_cond = tf.data.Dataset.from_tensor_slices(cond)
-            mask = np.expand_dims(particles[:,:,-1],-1)
-            masked = particles[:,:,:-1]*mask
+            mask = np.expand_dims(cells[:,:,-1],-1)
+
+            masked = cells[:,:,:-1]*mask
+            masked[masked[:,:,:] == -0.0] = 0.0
+
+            # Really good check on mask and data before training
+            print(f" First Cells in _prepare_batches = \n",masked[10,:10,:])
+            print(f"Last Cells in _prepare_batches = \n",masked[10,-10:,:])
+
             tf_part = tf.data.Dataset.from_tensor_slices(masked)
             tf_mask = tf.data.Dataset.from_tensor_slices(mask)
             tf_zip = tf.data.Dataset.zip((tf_part, tf_cluster,tf_cond,tf_mask))
+
             return tf_zip.shuffle(nevts).repeat().batch(batch_size)
     
-        train_data = _prepare_batches(train_cells,train_clusters)
-        print("train_cells = ",train_cells)
-        test_data  = _prepare_batches(test_cells,test_clusters)    
-        return data_size, train_data,test_data
+        train_data = _prepare_batches(train_cells,train_clusters,train_cond)
+        test_data  = _prepare_batches(test_cells,test_clusters,test_cond)    
+        return data_size, train_data, test_data
     
     else:
-        cond = to_categorical(jets[:nevts,-1], num_classes=num_classes_eval)
-        cond = np.concatenate([cond,np.zeros(shape=(cond.shape[0],num_classes-num_classes_eval),
-                                             dtype=np.float32)], -1)
-        mask = np.expand_dims(particles[:nevts,:,-1],-1)
-        return particles[:nevts,:,:-1]*mask,jets[:nevts,:-1],cond
+
+        mask = np.expand_dims(cells[:nevts,:,-1],-1)
+        return cells[:nevts,:,:-1]*mask,clusters[:nevts], cond[:nevts]

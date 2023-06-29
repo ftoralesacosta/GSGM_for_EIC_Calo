@@ -9,7 +9,7 @@ from deepsets import DeepSetsAtt, Resnet
 from tensorflow.keras.activations import swish, relu
 
 # tf and friends
-tf.random.set_seed(1234)
+tf.random.set_seed(1235)
 
 class GSGM(keras.Model):
     """Score based generative model"""
@@ -28,7 +28,7 @@ class GSGM(keras.Model):
         self.factor=factor
         #self.activation = layers.LeakyReLU(alpha=0.01)
         self.num_feat = self.config['NUM_FEAT']
-        self.num_jet = self.config['NUM_JET']
+        self.num_cluster = self.config['NUM_CLUS']
         self.num_cond = self.config['NUM_COND']
         self.num_embed = self.config['EMBED']
         self.max_part = npart
@@ -49,10 +49,7 @@ class GSGM(keras.Model):
         self.posterior_mean_coef2 = (1 - alphas_cumprod_prev) * tf.sqrt(alphas) / (1. - self.alphas_cumprod)
         
 
-        
-                
         #self.verbose = 1 if hvd.rank() == 0 else 0 #show progress only for first rank
-
         
         self.projection = self.GaussianFourierProjection(scale = 16)
         self.loss_tracker = keras.metrics.Mean(name="loss")
@@ -61,21 +58,21 @@ class GSGM(keras.Model):
         #Transformation applied to conditional inputs
         inputs_time = Input((1))
         inputs_cond = Input((self.num_cond))
-        inputs_jet = Input((self.num_jet))
+        inputs_cluster = Input((self.num_cluster))
         inputs_mask = Input((None,1)) #mask to identify zero-padded objects
         
 
         graph_conditional = self.Embedding(inputs_time,self.projection)
-        jet_conditional = self.Embedding(inputs_time,self.projection)
+        cluster_conditional = self.Embedding(inputs_time,self.projection)
 
         
         graph_conditional = layers.Dense(self.num_embed,activation=None)(tf.concat(
-            [graph_conditional,inputs_jet,inputs_cond],-1))
+            [graph_conditional,inputs_cluster,inputs_cond],-1))
         graph_conditional=self.activation(graph_conditional)
         
-        jet_conditional = layers.Dense(self.num_embed,activation=None)(tf.concat(
-            [jet_conditional,inputs_cond],-1))
-        jet_conditional=self.activation(jet_conditional)
+        cluster_conditional = layers.Dense(self.num_embed,activation=None)(tf.concat(
+            [cluster_conditional,inputs_cond],-1))
+        cluster_conditional=self.activation(cluster_conditional)
 
         
         self.shape = (-1,1,1)
@@ -87,25 +84,25 @@ class GSGM(keras.Model):
             projection_dim = 64,
             mask = inputs_mask,
         )
+
+        # print(f"inputs = {inputs}")
         
 
-        self.model_part = keras.Model(inputs=[inputs,inputs_time,inputs_jet,inputs_cond,inputs_mask],
-                                      outputs=outputs)
-        
+        self.model_part = keras.Model(inputs=[inputs,inputs_time,inputs_cluster,inputs_cond,inputs_mask],outputs=outputs)
+
         outputs = Resnet(
-            inputs_jet,
-            self.num_jet,
-            jet_conditional,
+            inputs_cluster,
+            self.num_cluster,
+            cluster_conditional,
             num_embed=self.num_embed,
             num_layer = 5,
             mlp_dim= 512,
         )
         
-        self.model_jet = keras.Model(inputs=[inputs_jet,inputs_time,inputs_cond],
-                                     outputs=outputs)
+        self.model_cluster = keras.Model(inputs=[inputs_cluster,inputs_time,inputs_cond],outputs=outputs)
 
             
-        self.ema_jet = keras.models.clone_model(self.model_jet)
+        self.ema_cluster = keras.models.clone_model(self.model_cluster)
         self.ema_part = keras.models.clone_model(self.model_part)
         
         
@@ -142,7 +139,7 @@ class GSGM(keras.Model):
 
     @tf.function
     def train_step(self, inputs):
-        part,jet,cond,mask = inputs
+        part,cluster,cond,mask = inputs
 
 
         random_t = tf.random.uniform(
@@ -162,7 +159,7 @@ class GSGM(keras.Model):
             #part
             z = tf.random.normal((tf.shape(part)),dtype=tf.float32)
             perturbed_x = alpha_reshape*part + z * sigma_reshape
-            score = self.model_part([perturbed_x, random_t,jet,cond,mask])
+            score = self.model_part([perturbed_x, random_t,cluster,cond,mask])
             
             v = alpha_reshape * z - sigma_reshape * part
             losses = tf.square(score - v)*mask
@@ -180,37 +177,37 @@ class GSGM(keras.Model):
             ema_weight.assign(self.ema * ema_weight + (1 - self.ema) * weight)
         
         with tf.GradientTape() as tape:
-            #jet
-            z = tf.random.normal((tf.shape(jet)),dtype=tf.float32)
-            perturbed_x = alpha*jet + z * sigma            
-            score = self.model_jet([perturbed_x, random_t,cond])
-            v = alpha * z - sigma * jet
+            #cluster
+            z = tf.random.normal((tf.shape(cluster)),dtype=tf.float32)
+            perturbed_x = alpha*cluster + z * sigma            
+            score = self.model_cluster([perturbed_x, random_t,cond])
+            v = alpha * z - sigma * cluster
             losses = tf.square(score - v)
-            loss_jet = tf.reduce_mean(tf.reshape(losses,(tf.shape(losses)[0], -1)))
+            loss_cluster = tf.reduce_mean(tf.reshape(losses,(tf.shape(losses)[0], -1)))
 
-        trainable_variables = self.model_jet.trainable_variables
-        g = tape.gradient(loss_jet, trainable_variables)
+        trainable_variables = self.model_cluster.trainable_variables
+        g = tape.gradient(loss_cluster, trainable_variables)
         g = [tf.clip_by_norm(grad, 1)
              for grad in g]
 
         self.optimizer.apply_gradients(zip(g, trainable_variables))        
-        self.loss_tracker.update_state(loss_jet + loss_part)
+        self.loss_tracker.update_state(loss_cluster + loss_part)
 
             
-        for weight, ema_weight in zip(self.model_jet.weights, self.ema_jet.weights):
+        for weight, ema_weight in zip(self.model_cluster.weights, self.ema_cluster.weights):
             ema_weight.assign(self.ema * ema_weight + (1 - self.ema) * weight)
 
 
         return {
             "loss": self.loss_tracker.result(), 
             "loss_part":tf.reduce_mean(loss_part),
-            "loss_jet":tf.reduce_mean(loss_jet),
+            "loss_cluster":tf.reduce_mean(loss_cluster),
         }
 
 
     @tf.function
     def test_step(self, inputs):
-        part,jet,cond,mask = inputs
+        part,cluster,cond,mask = inputs
 
 
         random_t = tf.random.uniform(
@@ -232,25 +229,25 @@ class GSGM(keras.Model):
 
 
 
-        score = self.model_part([perturbed_x, random_t,jet,cond,mask])
+        score = self.model_part([perturbed_x, random_t,cluster,cond,mask])
         v = alpha_reshape * z - sigma_reshape * part
         losses = tf.square(score - v)*mask
             
         loss_part = tf.reduce_mean(tf.reshape(losses,(tf.shape(losses)[0], -1)))
                     
-        #jet
-        z = tf.random.normal((tf.shape(jet)),dtype=tf.float32)
-        perturbed_x = alpha*jet + z * sigma            
-        score = self.model_jet([perturbed_x, random_t,cond])
-        v = alpha * z - sigma * jet
+        #cluster
+        z = tf.random.normal((tf.shape(cluster)),dtype=tf.float32)
+        perturbed_x = alpha*cluster + z * sigma            
+        score = self.model_cluster([perturbed_x, random_t,cond])
+        v = alpha * z - sigma * cluster
         losses = tf.square(score - v)
-        loss_jet = tf.reduce_mean(tf.reshape(losses,(tf.shape(losses)[0], -1)))
-        self.loss_tracker.update_state(loss_jet + loss_part)
+        loss_cluster = tf.reduce_mean(tf.reshape(losses,(tf.shape(losses)[0], -1)))
+        self.loss_tracker.update_state(loss_cluster + loss_part)
         
         return {
             "loss": self.loss_tracker.result(), 
             "loss_part":tf.reduce_mean(loss_part),
-            "loss_jet":tf.reduce_mean(loss_jet),
+            "loss_cluster":tf.reduce_mean(loss_cluster),
         }
 
             
@@ -258,46 +255,44 @@ class GSGM(keras.Model):
     def call(self,x):        
         return self.model(x)
 
-    def generate_jet(self,cond):
+    def generate_cluster(self,cond):
         start = time.time()
-        jet_info = self.DDPMSampler(cond,self.ema_jet,
-                                    data_shape=[self.num_jet],
+        cluster_info = self.DDPMSampler(cond,self.ema_cluster,
+                                    data_shape=[self.num_cluster],
                                     const_shape = [-1,1]).numpy()
         end = time.time()
-        print("Time for sampling {} events is {} seconds".format(cond.shape[0],end - start))
-        return jet_info
+        print("Sampling Clusters in {} Events ({} Seconds)".format(cond.shape[0],end - start))
+
+        return cluster_info
 
 
-    def generate(self,cond,jet_info):
-        print("Sampling {} evevts".format(cond.shape[0]))
+    def generate(self,cond,cluster_info):
         start = time.time()
-        jet_info = self.DDPMSampler(cond,self.ema_jet,
-                                    data_shape=[self.num_jet],
+        cluster_info = self.DDPMSampler(cond,self.ema_cluster,
+                                    data_shape=[self.num_cluster],
                                     const_shape = [-1,1]).numpy()
         end = time.time()
-        print("Time for sampling {} events is {} seconds".format(cond.shape[0],end - start))
+        print("Sampling Clusters in {} Events ({} Seconds)".format(cond.shape[0],end - start))
 
-        nparts = np.expand_dims(np.clip(utils.revert_npart(jet_info[:,-1],self.max_part),
+        nparts = np.expand_dims(np.clip(utils.revert_npart(cluster_info[:,-1],self.max_part),
                                         0,self.max_part),-1)
         #print(np.unique(nparts))
         mask = np.expand_dims(
             np.tile(np.arange(self.max_part),(nparts.shape[0],1)) < np.tile(nparts,(1,self.max_part)),-1)
         
-        assert np.sum(np.sum(mask.reshape(mask.shape[0],-1),-1,keepdims=True)-nparts)==0, 'ERROR: Particle mask does not match the expected number of particles'
+        assert np.sum(np.sum(mask.reshape(mask.shape[0],-1),-1,keepdims=True)-nparts)==0, 'ERROR: Particle mask does not match the expected number of cells'
 
         start = time.time()
         parts = self.DDPMSampler(tf.convert_to_tensor(cond,dtype=tf.float32),
                                  self.ema_part,
                                  data_shape=[self.max_part,self.num_feat],
-                                 jet=tf.convert_to_tensor(jet_info, dtype=tf.float32),
+                                 cluster=tf.convert_to_tensor(cluster_info, dtype=tf.float32),
                                  const_shape = self.shape,
                                  mask=tf.convert_to_tensor(mask, dtype=tf.float32)).numpy()
         
-        # parts = np.ones(shape=(cond.shape[0],self.max_part,3))
         end = time.time()
-        print("Time for sampling {} events is {} seconds".format(cond.shape[0],end - start))
-        return parts*mask,jet_info
-
+        print("Sampling Particles in {} Events ({} Seconds)".format(cond.shape[0],end - start))
+        return parts*mask,cluster_info
 
 
     @tf.function
@@ -306,7 +301,7 @@ class GSGM(keras.Model):
                     model,
                     data_shape=None,
                     const_shape=None,
-                    jet=None,
+                    cluster=None,
                     mask=None):
         """Generate samples from score-based models with Predictor-Corrector method.
         
@@ -325,7 +320,7 @@ class GSGM(keras.Model):
         data_shape = np.concatenate(([batch_size],data_shape))
         cond = tf.convert_to_tensor(cond, dtype=tf.float32)
         init_x = self.prior_sde(data_shape)
-        if jet is not None:
+        if cluster is not None:
             init_x *= mask 
 
         x = init_x
@@ -338,10 +333,10 @@ class GSGM(keras.Model):
             alpha = tf.gather(tf.sqrt(self.alphas_cumprod),batch_time_step)
             sigma = tf.gather(tf.sqrt(1-self.alphas_cumprod),batch_time_step)
             
-            if jet is None:
+            if cluster is None:
                 score = model([x, batch_time_step,cond],training=False)
             else:
-                score = model([x, batch_time_step,jet,cond,mask],training=False)
+                score = model([x, batch_time_step,cluster,cond,mask],training=False)
                 alpha = tf.reshape(alpha,self.shape)
                 sigma = tf.reshape(sigma,self.shape)
             
