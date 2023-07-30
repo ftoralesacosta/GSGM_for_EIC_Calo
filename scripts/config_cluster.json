@@ -1,12 +1,13 @@
 {
     'NUM_FEAT':4,
     'NUM_JET':2,
+    'NUM_CLUS':2,
     'NUM_COND':2,
     'BATCH':128,
     'LR':0.001,
-    'MAXEPOCH':500,
+    'MAXEPOCH':100,
     'EARLYSTOP':20,
     'EMBED':64,
     'MAX_STEPS':512,
-    'MODEL_NAME':'GSGM'
+    'MODEL_NAME':'GSGM_ansh'
 }

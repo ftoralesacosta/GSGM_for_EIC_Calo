@@ -7,8 +7,10 @@ from matplotlib import gridspec
 import matplotlib.ticker as mtick
 from sklearn.utils import shuffle
 import tensorflow as tf
-from keras.utils.np_utils import to_categorical
-import energyflow as ef
+import tensorflow.keras.utils as utils
+#from keras.utils.np_utils import to_categorical
+
+#import energyflow as ef
 
 np.random.seed(0) #fix the seed to keep track of validation split
 
@@ -58,15 +60,15 @@ name_translate={
 names = ['P','Theta']
 
 labels200 = {
-    'newMIP_smeared_20keV_200cells_FPCD.hdf5':0,
+    'log10_Uniform_03-23.hdf5':0,
     }
 
 labels1000 = {
-    'truncated_1000cells_FPCD.hdf5':0,
+    'log10_Uniform_03-23.hdf5':0,
 }
 
 # nevts = -1
-nevts = 10_000
+nevts = 10
 
 def SetStyle():
     from matplotlib import rc
@@ -312,6 +314,7 @@ def SimpleLoader(data_path,
     clusters = np.concatenate(clusters)
 
     #Split Conditioned Features and Cluster Training Features
+    
     cond = clusters[:,:num_condition]#GenP, GenTheta 
     clusters = clusters[:,ncluster_var:] #ClusterSum, N_Hits
 
@@ -345,7 +348,8 @@ def DataLoader(data_path,labels,
 
         if save_json:
             mask = cells[:,-1] == 1 #saves array of BOOLS instead of ints
-            print(f"L 357: Masked {np.shape(cells[mask])[0]} / {len(mask)} cells") 
+            print(f"L 357: Masked {np.shape(cells[mask])[0]} / {len(mask)} cells")
+            #print(f"L 357: Masked {np.shape(cells[mask])[0]} / {len(mask)} cells") 
 
             data_dict = {
                 'max_cluster':np.max(clusters[:,:],0).tolist(),
@@ -390,7 +394,7 @@ def DataLoader(data_path,labels,
 
         cells = cells.reshape(clusters.shape[0],num_part,-1)
 
-        print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}")
+        print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}") # Shape of Cells in DataLoader = (69930, 200, 5)
         print(f"\nL 381: Cells in DataLoader = \n{cells[0,15:20,:]}")
 
         return cells.astype(np.float32),clusters.astype(np.float32)
@@ -417,9 +421,16 @@ def DataLoader(data_path,labels,
     cells = np.concatenate(cells)
     clusters = np.concatenate(clusters)
 
+    print('clusters', clusters.shape) # clusters (69930, 4)
+
     #Split Cluster Data into Input and Condition
     cond = clusters[:,:num_condition]#GenP, GenTheta 
     clusters = clusters[:,ncluster_var:] #ClusterSum, N_Hits
+
+    print('cond', cond.shape) # cond (69930, 2)
+    print('clusters', clusters.shape) # clusters (69930, 2)
+    print(cond[0])
+    print(clusters[0])
 
 
     #Additional Pre-Processing, Log10 of E
@@ -430,7 +441,9 @@ def DataLoader(data_path,labels,
     cells,clusters,cond = shuffle(cells, clusters, cond, random_state=0)
     cells,clusters = _preprocessing(cells, clusters, save_json=True) 
     # cells,clusters = _preprocessing(cells,clusters,save_json=False) 
-    
+
+    print('cells',cells.shape) # cells (69930, 200, 5)
+    print('clusters',clusters.shape) # clusters (69930, 2)
 
     # Do Train/Test Split, or just return data
     data_size = clusters.shape[0]

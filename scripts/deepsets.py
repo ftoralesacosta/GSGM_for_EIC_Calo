@@ -10,7 +10,7 @@ import numpy as np
 
 def DeepSetsAtt(
         #num_part,
-        num_feat,
+        num_feat, #  4 what are the four features? 
         time_embedding,
         num_heads=4,
         num_transformer = 4,
@@ -18,9 +18,26 @@ def DeepSetsAtt(
         mask = None,
 ):
 
+    inputs = Input((None,num_feat)) # KerasTensor(type_spec=TensorSpec(shape=(None, None, 4)
+    masked_inputs = layers.Masking(mask_value=0.0,name='Mask')(inputs) # KerasTensor(type_spec=TensorSpec(shape=(None, None, 4)
+    
+    #Include the time information as an additional feature fixed for all particles
+    print(time_embedding) # KerasTensor(type_spec=TensorSpec(shape=(None, 64),)
+    time = layers.Dense(2*projection_dim,activation=None)(time_embedding) # KerasTensor(type_spec=TensorSpec(shape=(None, 128),
+    time = layers.LeakyReLU(alpha=0.01)(time) # KerasTensor(type_spec=TensorSpec(shape=(None, 128),
+    time = layers.Dense(projection_dim)(time) # KerasTensor(type_spec=TensorSpec(shape=(None, 64),
+    
+    # print('time: ', time) # time: (shape=(None, 64)
+    # print(time.shape[-1]) # 64
+    
 
-    inputs = Input((None,num_feat))
-    masked_inputs = layers.Masking(mask_value=0.0,name='Mask')(inputs)
+    #time = tf.reshape(time,(-1,1,tf.shape(time)[-1])) # KerasTensor(type_spec=TensorSpec(shape=(None, 1, None)
+    time = tf.reshape(time,(-1,1,tf.shape(time)[-1]))
+    time = tf.tile(time,(1,tf.shape(inputs)[1],1)) # KerasTensor(type_spec=TensorSpec(shape=(None, None, None),
+    
+    # print('masked_inputs',masked_inputs.shape) # masked_inputs (None, None, 4)
+    # print('time',time) # (shape=(None, None, 64)
+    # print('time 2',(tf.concat([masked_inputs,time],-1))) # shape=(None, None, 68),
     
     #Include the time information as an additional feature fixed for all particles
     time = layers.Dense(2*projection_dim,activation=None)(time_embedding)
@@ -29,7 +46,7 @@ def DeepSetsAtt(
     time = tf.reshape(time,(-1,1,tf.shape(time)[-1]))
     time = tf.tile(time,(1,tf.shape(inputs)[1],1))
 
-    
+
     #Use the deepsets implementation with attention, so the model learns the relationship between particles in the event
     tdd = TimeDistributed(Dense(projection_dim,activation=None))(tf.concat([masked_inputs,time],-1))
     tdd = TimeDistributed(layers.LeakyReLU(alpha=0.01))(tdd)
@@ -64,6 +81,8 @@ def DeepSetsAtt(
     representation =  TimeDistributed(layers.LeakyReLU(alpha=0.01))(representation)
     outputs = TimeDistributed(Dense(num_feat,activation=None,kernel_initializer="zeros"))(representation)
     
+    print(input)
+    # print(outputs.shape) # (None, None, 4)
     return  inputs, outputs
 
 
@@ -99,5 +118,6 @@ def Resnet(
     layer = act(layers.Dense(mlp_dim)(residual+layer))
     outputs = layers.Dense(end_dim,kernel_initializer="zeros")(layer)
     
+    # print(outputs.shape) # (None, 2)
     return outputs
 
