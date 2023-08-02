@@ -22,6 +22,21 @@ def write_list_to_file(path, my_list):
         for item in my_list:
             file.write(str(item) + '\n')
 
+import numpy as np
+
+def create_uniform_2d_array(x_min, x_max, x_min2, x_max2, length):
+
+    if length < 1:
+        raise ValueError("Length should be at least 1 to create a meaningful array.")
+
+    # Generate a 1D array of evenly spaced values for each column
+    column1 = np.linspace(x_min, x_max, length)
+    column2 = np.linspace(x_min2, x_max2, length)
+
+    # Combine the columns to form the (length, 2) 2D array
+    result_array = np.column_stack((column1, column2))
+    return result_array
+
 def W1(
         cluster1,
         cluster2,
@@ -51,6 +66,11 @@ def plot(cluster1,cluster2,cond1,cond2,nplots,title,plot_folder,is_big):
     print('nplots',nplots)
     
     for ivar in range(nplots):
+
+        print('ivar',ivar)
+        print('title',title)
+        print('is_big',is_big)
+
         config = PlottingConfig(title,ivar,is_big)
 
         name = utils.names[ivar]
@@ -59,6 +79,8 @@ def plot(cluster1,cluster2,cond1,cond2,nplots,title,plot_folder,is_big):
             '{}_truth'.format(name): cluster1[:,ivar],
             '{}_gen'.format(name):  cluster2[:,ivar]
         }
+
+        print('feed_dict',feed_dict)
 
         if ivar == 0:                            
             fig,gs,_ = utils.HistRoutine(feed_dict,xlabel=config.var,
@@ -96,7 +118,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--data_folder', default='/usr/workspace/hip/eic/scratch/', help='Folder containing data and MC files')
-    parser.add_argument('--plot_folder', default='../plots', help='Folder to save results')
+    parser.add_argument('--plot_folder', default='./plots/', help='Folder to save results')
     parser.add_argument('--config', default='config_cluster.json', help='Training parameters')
 
     parser.add_argument('--model', default='GSGM', help='Type of generative model to load')
@@ -124,6 +146,9 @@ if __name__ == "__main__":
                                                   num_condition=config['NUM_COND'],
                                                   make_tf_data=False)
 
+    #print(condition.shape) # (10, 2)
+    #print(condition) # [[ 1.0066884  17.722715  ] , [ 1.1772832  17.876328  ] , [ 1.2580142  15.626081  ] , [ 0.344686   18.366722  ] , [ 1.8469115  18.092258  ] , [ 0.21613598 18.01947   ] , [ 0.49931717 16.488306  ] , [ 0.24487707 17.234745  ] , [ 1.6350818  17.398014  ] , [ 0.7529935  17.117504  ]]
+
     if flags.test:
         cells_gen, clusters_gen, condition_gen = utils.SimpleLoader(flags.data_folder,labels=labels)
         sample_name = "test_mode"
@@ -150,22 +175,33 @@ if __name__ == "__main__":
             cells_gen = []
             clusters_gen = []
 
-            nsplit = 2 #number of batches, in which to split nevts in utils.py
+            nsplit = 1 #number of batches, in which to split nevts in utils.py
             # nsplit = 2 #number of batches, in which to split nevts in utils.py
 
-            print(clusters)
-            print(clusters.shape) # (10000, 2) --> 20 arrays of (500,2)
+            #print(clusters)
+            #print(clusters.shape) # (10000, 2) --> 20 arrays of (500,2)
 
             split_part = np.array_split(clusters,nsplit) # split the clusters
 
-            print('split_part',len(split_part)) # 20
+            nvts = len(condition)
+
+            print('split_part',len(split_part)) # 20 , 5
             print('split_part.shape',split_part[0].shape) # split_part.shape (500, 2)
-            print('condition', len(condition)) # condition 10000
+            print('condition', len(condition)) # condition 10000 (nevts) , 40
             print('condition.shape', condition[0].shape) # condition.shape (2,)
+            print('condition 0',condition)
+
+            #condition = create_uniform_2d_array(0, 2.1198688, 12, 20, 10) 
+            condition = create_uniform_2d_array(1, 1, 15.567589, 18.432405, 20) # nvets/nsplit
+            condition = tf.cast(condition, tf.float32)
+
+            print('condition 1',condition)
+            #print('condition 1', len(condition)) # condition 1 10
+            #print('condition.shape', condition[0].shape) # condition.shape (2,)
 
             for i, split in enumerate(np.array_split(condition,nsplit)):
                 
-                print('split',split.shape) # split (500, 2) --> condition
+                print('split',split.shape) # split (500, 2) --> condition , nevts/nplit (5,2)
                 print('split_part[i]',split_part[i].shape) # split_part[i] (500, 2) --> cluster
                 #,split_part[i]
                 # genP as input to model.genearet()
@@ -173,7 +209,7 @@ if __name__ == "__main__":
 
                 print(p.shape)# (5, 200, 4)
                 print(j.shape)# (5, 2)
-                print('j', j)
+                #print('j', j)
 
                 cells_gen.append(p)
                 clusters_gen.append(j)
@@ -189,14 +225,19 @@ if __name__ == "__main__":
             cells_gen, clusters_gen = utils.ReversePrep(cells_gen,clusters_gen,npart=npart)
             # clusters_gen = np.concatenate([clusters_gen,np.expand_dims(np.argmax(condition,-1),-1)],-1)
 
-            print(cells_gen)
-            print(clusters_gen)
+            print(cells_gen.shape) # (10, 200, 4)
+            print(clusters_gen.shape) # (10, 2)
+            print(condition.shape) # (10, 2)
+            #print(condition)
+
+            #condition = create_uniform_2d_array(0, 2.1198688, 15.567589, 18.432405, 10)
+            #print(condition)
 
             path_gen = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data'
 
-            path_gen_cells = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/cells.txt'
-            path_gen_clus = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/clusters_gen.txt'
-            path_gen_cond = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/clusters_gen.txt'
+            path_gen_cells = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/cells_g_'+str(nvts)+'.txt'
+            path_gen_clus = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/clusters_g_'+str(nvts)+'.txt'
+            path_gen_cond = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/cond_g_'+str(nvts)+'.txt'
 
             write_list_to_file(path_gen_cells, cells_gen)
             write_list_to_file(path_gen_clus, clusters_gen) 
@@ -209,11 +250,11 @@ if __name__ == "__main__":
         else:
             with h5.File(os.path.join(flags.data_folder,sample_name+'.h5'),"r") as h5f:
                 cells_gen = h5f['cell_features'][:]
-                print(cells_gen)
-                print(cells_gen.shape)
+                #print(cells_gen)
+                #print(cells_gen.shape)
                 clusters_gen = h5f['cluster_features'][:]
-                print(clusters_gen)
-                print(clusters_gen.shape)
+                #print(clusters_gen)
+                #print(clusters_gen.shape)
 
         condition_gen = clusters_gen[:,-1]
 
@@ -229,11 +270,13 @@ if __name__ == "__main__":
     print(cells_gen.shape)  # (10, 200, 4)
     print(clusters_gen.shape) # (10, 1)
 
+    print(condition_gen.shape) # (10, )
+
 
     plot(clusters,clusters_gen,condition,condition,title='cluster',
          nplots=1,plot_folder=flags.plot_folder,is_big=flags.big)
 
-    path_gen = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/clusters_gen.txt'
+    path_gen = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/clusters_gen_'+str(nvts)+'.txt'
 
     write_list_to_file(path_gen, clusters_gen)
 
@@ -241,7 +284,7 @@ if __name__ == "__main__":
 
     print('*'*30)
 
-    print(cells_gen.shape)
+    print(cells_gen.shape) # (10, 200, 4) ; (5, 200, 4)
 
     cells_gen= cells_gen.reshape((-1,4))
     mask_gen = cells_gen[:,2]>0. # masking which column.
@@ -255,11 +298,12 @@ if __name__ == "__main__":
 
     print('*'*30)
 
-    print(condition.shape)
-    print(condition_gen.shape)
+    print(cells_gen.shape) # (313, 4) ; (235, 4)
+    print(condition.shape) # (187, 2) ; (73, 2)
+    print(condition_gen.shape) # (313, 2) ; (235, 2)
 
-    path_gen = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/cells.txt'
-    path_gen_2 = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/condition_gen.txt'
+    path_gen = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/cells_final_'+str(nvts)+'.txt'
+    path_gen_2 = '/usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/gen_data/condition_gen_final_'+str(nvts)+'.txt'
 
     write_list_to_file(path_gen, cells_gen)
     write_list_to_file(path_gen_2, condition_gen)
@@ -282,4 +326,9 @@ if __name__ == "__main__":
 
     # Compare the values from the generated data.
 
+    # Total cluster energy , first model (condition to the 2nd model) -> learn the number of cells and absolute Energy.
+    # x,y,z,E -> learns the energy scale.
 
+
+
+# /usr/workspace/sinha4/GSGM_new/GSGM_for_EIC_Calo/scripts/plot_jet.py

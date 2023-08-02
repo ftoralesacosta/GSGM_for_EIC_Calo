@@ -139,7 +139,7 @@ class GSGM(keras.Model):
 
         print(f"outputs2 = {outputs}") # outputs = KerasTensor(type_spec=TensorSpec(shape=(None, 2), dtype=tf.float32, name=None), name='dense_46/BiasAdd:0', description="created by layer 'dense_46'")
         
-        # cluster = (None, 2){Number, E_cl} , (None, 64){time embedding_attaches to each particle differently} , inputs_cond = (None, 2) {Pgen, Theta}.
+        # cluster = (None, 2){ClusterSum, N_Hits} , (None, 64){time embedding_attaches to each particle differently} , inputs_cond = (None, 2) {Pgen, Theta}.
         self.model_cluster = keras.Model(inputs=[inputs_cluster,inputs_time,inputs_cond],outputs=outputs)
         # output = (None, 2)
         # # This is used to calculate score (As score dim should be similar to input image dimmension)

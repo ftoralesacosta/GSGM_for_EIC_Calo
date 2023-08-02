@@ -116,7 +116,8 @@ def Resnet(
         layer =  resnet_dense(layer,mlp_dim)
 
     layer = act(layers.Dense(mlp_dim)(residual+layer))
-    outputs = layers.Dense(end_dim,kernel_initializer="zeros")(layer)
+
+    outputs = layers.Dense(end_dim,kernel_initializer="zeros")(layer) # end_dim dim number of cells.
     
     # print(outputs.shape) # (None, 2)
     return outputs
