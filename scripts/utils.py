@@ -58,7 +58,7 @@ name_translate={
 names = ['P','Theta']
 
 labels200 = {
-    'newMIP_smeared_20keV_200cells_FPCD.hdf5':0,
+    'G4_smeared.h5':0,
     }
 
 labels1000 = {
@@ -66,7 +66,9 @@ labels1000 = {
 }
 
 # nevts = -1
-nevts = 10_000
+# nevts = 500_000
+# nevts = 100_000
+nevts = 8000
 
 def SetStyle():
     from matplotlib import rc
@@ -425,7 +427,8 @@ def DataLoader(data_path,labels,
 
     #Additional Pre-Processing, Log10 of E
     cells[:,:,0] = np.log10(cells[:,:,0]) #Log10(CellE)
-    cond[:,0] = np.log10(cond[:,0]) #Log10 of GenP #Make sure maks is applied in _preprocess
+    cond[:,0] = np.log10(cond[:,0]) #Log10 of GenP 
+
     # clusters = np.log10(clusters[:,0]) # ClusterSumE, after cond split
 
     cells,clusters,cond = shuffle(cells, clusters, cond, random_state=0)

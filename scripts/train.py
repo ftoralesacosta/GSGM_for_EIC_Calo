@@ -12,6 +12,7 @@ from GSGM_distill import GSGM_distill
 from tensorflow.keras.callbacks import ModelCheckpoint
 import tensorflow_addons as tfa
 import horovod.tensorflow.keras as hvd
+import time
 
 tf.random.set_seed(1233)
 #tf.keras.backend.set_floatx('float64')
@@ -34,7 +35,7 @@ if __name__ == "__main__":
 
     flags = parser.parse_args()
     config = utils.LoadJson(flags.config)
-    print(f"\n\nL 37: Configuration: {config} \n\n")
+    print(f"n\nL 37: Configuration: {config} \n")
 
     assert flags.factor%2==0 or flags.factor==1, "Distillation reduction steps needs to be even"
 
@@ -45,6 +46,7 @@ if __name__ == "__main__":
         labels=utils.labels200
         npart=200
     
+    print("L 48: Labels = ",labels)
     data_size,training_data,test_data = utils.DataLoader(flags.data_path,
                                                          labels,
                                                          npart,
@@ -53,8 +55,6 @@ if __name__ == "__main__":
                                                          config['NUM_COND'],
                                                          config['BATCH'])
 
-    # for data in training_data:
-    #     print("Datum of Traning_Data = ",data)
 
     model = GSGM(config=config,npart=npart)
 
@@ -106,7 +106,8 @@ if __name__ == "__main__":
                                      period=1,save_weights_only=True)
         callbacks.append(checkpoint)
 
-    
+    start_time = time.time()
+
     history = model.fit(
         training_data,
         epochs=config['MAXEPOCH'],
@@ -117,3 +118,5 @@ if __name__ == "__main__":
         verbose=1 if hvd.rank()==0 else 0,
         #steps_per_epoch=1,
     )
+    
+    print("--- %s seconds ---" % (time.time() - start_time))

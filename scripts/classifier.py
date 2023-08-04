@@ -4,7 +4,8 @@ import h5py
 import numpy as np
 from sklearn.metrics import roc_curve, auc
 
-nevts = 10_000
+nevts = 100_000
+# nevts = 8_000
 
 # Define a custom dataset class to load data from HDF5 files
 class HDF5Dataset(Dataset):
@@ -75,14 +76,30 @@ num_epochs = 100
 
 
 continuous = True
+five_x_five = False
+images = False
 
 # Load the datasets
-geant4_dataset = HDF5Dataset('G4_Discrete.h5', "hcal_cells", 1)
-diffusion_dataset = HDF5Dataset('GSGM_Discrete.h5', "cell_features", 0)
+# geant4_dataset = HDF5Dataset('G4_Discrete.h5', "hcal_cells", 1)
+# diffusion_dataset = HDF5Dataset('GSGM_Discrete.h5', "cell_features", 0)
 
 if continuous:
     geant4_dataset = HDF5Dataset('G4_smeared.h5', "hcal_cells", 1)
-    diffusion_dataset = HDF5Dataset('GSGM.h5', "cell_features", 0)
+    # diffusion_dataset = HDF5Dataset('GSGM.h5', "cell_features", 0)
+    diffusion_dataset = HDF5Dataset('GSGM_128mlp.h5', "cell_features", 0)
+
+elif five_x_five:
+    geant4_dataset = HDF5Dataset('G4_5x5_10kDiscrete.h5', "hcal_cells", 1)
+    diffusion_dataset = HDF5Dataset('GSGM_5x5_Discrete.h5', "cell_features", 0)
+
+elif images:
+    geant4_dataset = HDF5Dataset('Geant4_images_5x5.h5', "calo_images", 1)
+    diffusion_dataset = HDF5Dataset('FPCD_images_5x5.h5', "calo_images", 0)
+    # diffusion_dataset = HDF5Dataset('GSGM_epic_hcal_images_5x5.h5', 
+    #                                 "calo_images", 0)
+else:
+    geant4_dataset = HDF5Dataset('G4_Discrete.h5', "hcal_cells", 1)
+    diffusion_dataset = HDF5Dataset('GSGM_Discrete.h5', "cell_features", 0)
 
 # Combine datasets
 combined_dataset = torch.utils.data.ConcatDataset([geant4_dataset, diffusion_dataset])
@@ -100,11 +117,13 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
 # Get the input size from the dataset
 input_size = diffusion_dataset[0][0].shape[0]*diffusion_dataset[0][0].shape[1]
+if images:
+    input_size = diffusion_dataset[0][0].shape[1]**3
 print("INPUT SIZE = ", input_size)
 
 # Hyper Parameters
-hidden_size1 = 128
-hidden_size2 = 64
+hidden_size1 = 256
+hidden_size2 = 256
 num_classes = 2
 
 # Initialize the model and optimizer
@@ -125,6 +144,7 @@ for epoch in range(num_epochs):
 
         inputs = inputs.to(device)
         labels = labels.to(device)
+        # print(f"inputs = {inputs}")
 
         # Forward pass
         outputs = model(inputs)

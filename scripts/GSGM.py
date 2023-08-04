@@ -21,7 +21,6 @@ class GSGM(keras.Model):
             raise ValueError("Config file not given")
 
 
-
         self.activation = layers.LeakyReLU(alpha=0.01)
         #self.activation = swish
         # self.activation = relu
@@ -80,7 +79,7 @@ class GSGM(keras.Model):
             num_feat=self.num_feat,
             time_embedding=graph_conditional,
             num_heads=1,
-            num_transformer = 8,
+            num_transformer = 8, #nominal 8
             projection_dim = 64,
             mask = inputs_mask,
         )
@@ -95,17 +94,21 @@ class GSGM(keras.Model):
             self.num_cluster,
             cluster_conditional,
             num_embed=self.num_embed,
-            num_layer = 5,
-            mlp_dim= 512,
+            num_layer = 5, #5
+            mlp_dim= 128, #512
         )
         
         self.model_cluster = keras.Model(inputs=[inputs_cluster,inputs_time,inputs_cond],outputs=outputs)
-
             
         self.ema_cluster = keras.models.clone_model(self.model_cluster)
         self.ema_part = keras.models.clone_model(self.model_part)
         
-        
+        print("\n\n\n =========== Particle Model Summary =========== ")
+        self.model_part.summary()
+
+        print("\n\n\n =========== Cluster Model Summary =========== ")
+        self.model_cluster.summary()
+
     @property
     def metrics(self):
         """List of the model's metrics.

@@ -76,6 +76,7 @@ def plot(cluster1,cluster2,cond1,cond2,nplots,title,plot_folder,is_big):
 
 
 if __name__ == "__main__":
+    print( "Running plot_jet.py as script" )
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
@@ -86,7 +87,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data_folder', default='/global/cfs/cdirs/m3929/GSGM', help='Folder containing data and MC files')
+    parser.add_argument('--data_folder', default='./', help='Folder containing data and MC files')
     parser.add_argument('--plot_folder', default='../plots', help='Folder to save results')
     parser.add_argument('--config', default='config_cluster.json', help='Training parameters')
 
@@ -133,6 +134,7 @@ if __name__ == "__main__":
         if flags.sample:            
             model = GSGM(config=config,factor=flags.factor,npart=npart)
             checkpoint_folder = '../checkpoints_{}/checkpoint'.format(model_name)
+            # checkpoint_folder = '../checkpoints_GSGM_128mlp/checkpoint'.format(model_name)
             if flags.distill:
                 checkpoint_folder = '../checkpoints_{}_d{}/checkpoint'.format(model_name,flags.factor)
                 model = GSGM_distill(model.ema_cluster,model.ema_part,config=config,
@@ -143,14 +145,16 @@ if __name__ == "__main__":
             cells_gen = []
             clusters_gen = []
 
-            nsplit = 20 #number of batches, in which to split nevts in utils.py
-            # nsplit = 2 #number of batches, in which to split nevts in utils.py
+            # nsplit = 100 #number of batches, in which to split nevts in utils.py
+            nsplit = 4 #number of batches, in which to split nevts in utils.py
 
             split_part = np.array_split(clusters,nsplit)
             for i,split in enumerate(np.array_split(condition,nsplit)):
                 #,split_part[i]
                 # genP as input to model.genearet()
+                start = time.time()
                 p,j = model.generate(split,split_part[i])
+                print(f"Time to sample {np.shape(split_part[i])[0]} events is {time.time() - start} seconds")
                 cells_gen.append(p)
                 clusters_gen.append(j)
 
