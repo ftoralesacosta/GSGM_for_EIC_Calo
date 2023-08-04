@@ -7,8 +7,10 @@ from matplotlib import gridspec
 import matplotlib.ticker as mtick
 from sklearn.utils import shuffle
 import tensorflow as tf
-from keras.utils.np_utils import to_categorical
-import energyflow as ef
+import tensorflow.keras.utils as utils
+#from keras.utils.np_utils import to_categorical
+
+#import energyflow as ef
 
 np.random.seed(0) #fix the seed to keep track of validation split
 
@@ -58,17 +60,21 @@ name_translate={
 names = ['P','Theta']
 
 labels200 = {
-    'G4_smeared.h5':0,
+
+    #'G4_smeared.h5':0,
+    'log10_Uniform_03-23.hdf5':0,
+
     }
 
 labels1000 = {
-    'truncated_1000cells_FPCD.hdf5':0,
+    'log10_Uniform_03-23.hdf5':0,
 }
 
 # nevts = -1
 # nevts = 500_000
 # nevts = 100_000
 nevts = 8000
+
 
 def SetStyle():
     from matplotlib import rc
@@ -125,8 +131,8 @@ def PlotRoutine(feed_dict,xlabel='',ylabel='',reference_name='gen'):
                 ax1.plot(ratio,color=colors[plot],markeredgewidth=1,marker=line_style[plot],lw=0)
             else:
                 ax1.plot(ratio,color=colors[plot],linewidth=2,linestyle=line_style[plot])
-                
-        
+
+
     FormatFig(xlabel = "", ylabel = ylabel,ax0=ax0)
     ax0.legend(loc='best',fontsize=16,ncol=1)
 
@@ -152,7 +158,7 @@ def FormatFig(xlabel,ylabel,ax0):
     # plt.yticks(y_loc, y_update) 
     ax0.set_xlabel(xlabel,fontsize=20)
     ax0.set_ylabel(ylabel)
-        
+
 
     # xposition = 0.9
     # yposition=1.03
@@ -185,15 +191,17 @@ def HistRoutine(feed_dict,
     if plot_ratio:
         plt.xticks(fontsize=0)
         ax1 = plt.subplot(gs[1],sharex=ax0)
-        
-    
+
+
     if binning is None:
-        binning = np.linspace(np.quantile(feed_dict[reference_name],0.0),np.quantile(feed_dict[reference_name],1),20)
-        
+        binning = np.linspace(np.quantile(feed_dict[reference_name],0.0),np.quantile(feed_dict[reference_name],1),5)
+
     xaxis = [(binning[i] + binning[i+1])/2.0 for i in range(len(binning)-1)]
     reference_hist,_ = np.histogram(feed_dict[reference_name],bins=binning,density=True)
-    maxy = np.max(reference_hist)
-    
+    maxy = np.max(reference_hist) 
+    print(reference_hist) # [2.16 0.72 0.72 0.   0.   0.   0.   0.   0.  ]
+    print(maxy) # 2.1599999999999997
+
     for ip,plot in enumerate(feed_dict.keys()):
 
         # print("Plot",ip,": Shape of feed_dict = ",np.shape(feed_dict[plot]))
@@ -211,15 +219,13 @@ def HistRoutine(feed_dict,
 
         if plot_ratio:
             if reference_name!=plot:
-                ratio = 100*np.divide(reference_hist-dist,reference_hist)
+                ratio = 100*np.divide(reference_hist-dist,reference_hist) # mark.
                 ax1.plot(xaxis,ratio,color=colors[plot],marker='o',ms=10,lw=0,markerfacecolor='none',markeredgewidth=3)
-        
+
     ax0.legend(loc=label_loc,fontsize=12,ncol=5)
 
     if logy:
         ax0.set_yscale('log')
-
-
 
     if plot_ratio:
         FormatFig(xlabel = "", ylabel = ylabel,ax0=ax0)
@@ -231,7 +237,7 @@ def HistRoutine(feed_dict,
         plt.ylim([-100,100])
     else:
         FormatFig(xlabel = xlabel, ylabel = ylabel,ax0=ax0)
-    
+
     return fig,gs, binning
 
 
@@ -255,7 +261,7 @@ def revert_npart(npart,max_npart):
     x = x * (data_dict['max_cluster'][-1]-data_dict['min_cluster'][-1]) + data_dict['min_cluster'][-1]
     #x = np.exp(x)
     return np.round(x).astype(np.int32)
-     
+
 def revert_logit(x):
     alpha = 1e-6
     exp = np.exp(x)
@@ -289,7 +295,6 @@ def ReversePrep(cells,clusters,npart):
 
     return cells,clusters
 
-
 def SimpleLoader(data_path,
                  labels,
                  ncluster_var = 2,
@@ -315,8 +320,9 @@ def SimpleLoader(data_path,
     clusters = np.concatenate(clusters)
 
     #Split Conditioned Features and Cluster Training Features
-    cond = clusters[:,:num_condition]#GenP, GenTheta 
-    clusters = clusters[:,ncluster_var:] #ClusterSum, N_Hits
+    
+    cond = clusters[:,:num_condition] # GenP, GenTheta 
+    clusters = clusters[:,ncluster_var:] # ClusterSum, N_Hits
 
     cells,clusters = shuffle(cells,clusters, random_state=0)
 
@@ -348,7 +354,8 @@ def DataLoader(data_path,labels,
 
         if save_json:
             mask = cells[:,-1] == 1 #saves array of BOOLS instead of ints
-            print(f"L 357: Masked {np.shape(cells[mask])[0]} / {len(mask)} cells") 
+            print(f"L 357: Masked {np.shape(cells[mask])[0]} / {len(mask)} cells")
+            #print(f"L 357: Masked {np.shape(cells[mask])[0]} / {len(mask)} cells") 
 
             data_dict = {
                 'max_cluster':np.max(clusters[:,:],0).tolist(),
@@ -393,7 +400,7 @@ def DataLoader(data_path,labels,
 
         cells = cells.reshape(clusters.shape[0],num_part,-1)
 
-        print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}")
+        print(f"\nL 380: Shape of Cells in DataLoader = {np.shape(cells)}") # Shape of Cells in DataLoader = (69930, 200, 5)
         print(f"\nL 381: Cells in DataLoader = \n{cells[0,15:20,:]}")
 
         return cells.astype(np.float32),clusters.astype(np.float32)
@@ -420,9 +427,21 @@ def DataLoader(data_path,labels,
     cells = np.concatenate(cells)
     clusters = np.concatenate(clusters)
 
+    print('clusters', clusters.shape) # clusters (69930, 4)
+
     #Split Cluster Data into Input and Condition
     cond = clusters[:,:num_condition]#GenP, GenTheta 
     clusters = clusters[:,ncluster_var:] #ClusterSum, N_Hits
+
+    print('cond', cond.shape) # cond (69930, 2)
+    print('clusters', clusters.shape) # clusters (69930, 2) ; while plotting clusters (29970, 2)
+    print('*'*30)
+    print(cond[0]) # [55.11317  18.366808]
+    print(clusters[0]) # [ 0.35388187 67.]
+
+    print('mean', np.mean(cond, axis=0)) # mean [ 1.0650898 17.038385 ]
+    print('min', np.min(cond, axis=0)) # min [9.4318224e-05 1.5567589e+01]
+    print('max', np.max(cond, axis=0)) # ax [ 2.1198688 18.432405 ]
 
 
     #Additional Pre-Processing, Log10 of E
@@ -434,7 +453,9 @@ def DataLoader(data_path,labels,
     cells,clusters,cond = shuffle(cells, clusters, cond, random_state=0)
     cells,clusters = _preprocessing(cells, clusters, save_json=True) 
     # cells,clusters = _preprocessing(cells,clusters,save_json=False) 
-    
+
+    print('cells',cells.shape) # cells (69930, 200, 5)
+    print('clusters',clusters.shape) # clusters (69930, 2)
 
     # Do Train/Test Split, or just return data
     data_size = clusters.shape[0]
@@ -476,6 +497,11 @@ def DataLoader(data_path,labels,
         return data_size, train_data, test_data
     
     else:
-
+        
+        #print('mean', np.mean(cond, axis=0)) # mean [ 1.0650898 17.038385 ]
+        #print('min', np.min(cond, axis=0)) # min [9.4318224e-05 1.5567589e+01]
+        #print('max', np.max(cond, axis=0)) # ax [ 2.1198688 18.432405 ]
+        print(cond.shape) # (29970, 2)
         mask = np.expand_dims(cells[:nevts,:,-1],-1)
+        print(cond[:nevts].shape) # (10, 2)
         return cells[:nevts,:,:-1]*mask,clusters[:nevts], cond[:nevts]

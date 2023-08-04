@@ -4,6 +4,23 @@ This is a fork of the official implementation of the FPCD paper that uses a diff
 
 ![Visualization of FPCD](./assets/FPCD.png)
 
+#Calorimeter Data
+
+The idea of this repository is to take advantage of the similarities between jets/constituent and clusters/cells. We take calorimeter simulations done for the EPIC detector an the upcoming EIC, and convert them to HDF5 files that closeley resemble the JetNet data format. The Calorimer HDF5 files are made in the [eic/generate_data](https://github.com/eiccodesign/generate_data) repository using [this converter](https://github.com/eiccodesign/generate_data/blob/main/to_hdf5/h5_for_FPCD_converter.cc). The format of the data is in the table below. The integers below the cell description just give the index of that feature in the dataset for convenience.
+
+|     |     "cluster"      |    |      |
+|:---:|:------------------:|:-----------------:|:----:|
+| $P_\mathrm{Gen.}$ | $\theta_\mathrm{Gen.}$  | $\sum E_\mathrm{cells}$ | $N_\mathrm{cells}$|
+|  0                |       1                 |          2              |   3               |
+
+|   |   |"hcal_cells"|        |     |
+|-----|-----|----|----|-----|
+| E | X | Y         | Z  |mask|
+| 0 | 1 | 2          | 3  | 4  |
+
+---
+
+
 # Training a new model
 
 To train a new model from scratch, first, obtain data from the [eic/generate_data](https://github.com/eiccodesign/generate_data) repository. Then convert the root file(s) to HDF5 with [this converter](https://github.com/eiccodesign/generate_data/blob/main/to_hdf5/h5_for_FPCD_converter.cc)
