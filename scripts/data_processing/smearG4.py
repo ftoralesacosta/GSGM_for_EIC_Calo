@@ -13,13 +13,17 @@ def get_smears(width, shape):
     return smears
 
 
+
+# ====== MAIN ======
+
 geant4_name = "../improvedMIP_200cells_FPCD.hdf5"
 
 bin_dict = get_bin_dict(geant4_name)
 
 g4 = h5py.File(geant4_name, 'r')
 nevents = np.shape(g4['hcal_cells'])[0]
-chunk_size=2000
+# nevents = 10_000
+# chunk_size=2000
 #nevents = 100
 
 ncells = np.shape(g4['hcal_cells'])[1]
@@ -27,7 +31,7 @@ nvar = np.shape(g4['hcal_cells'])[2]
 ncluster_var = np.shape(g4['cluster'])[1]
 chunk_size = 100
 
-with h5py.File(f'../test_smear.h5', 'w') as newfile:
+with h5py.File(f'../G4_smeared.h5', 'w') as newfile:
     # create empty data set
     dset = newfile.create_dataset('hcal_cells', 
                                 shape=(nevents,ncells,nvar),
