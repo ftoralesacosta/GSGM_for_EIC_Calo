@@ -12,6 +12,7 @@ from GSGM_distill import GSGM_distill
 from tensorflow.keras.callbacks import ModelCheckpoint
 import tensorflow_addons as tfa
 import horovod.tensorflow.keras as hvd
+import time
 
 tf.random.set_seed(1233)
 
@@ -51,6 +52,7 @@ if __name__ == "__main__":
     print('labels',labels) # labels {'log10_Uniform_03-23.hdf5': 0}
     print('npart', npart) # npart 200
     
+    print("L 48: Labels = ",labels)
     data_size,training_data,test_data = utils.DataLoader(flags.data_path,
                                                          labels,
                                                          npart,
@@ -58,7 +60,7 @@ if __name__ == "__main__":
                                                          config['NUM_CLUS'],
                                                          config['NUM_COND'],
                                                          config['BATCH'])
-    #print(len(training_data))
+
     print(data_size)
 
     model = GSGM(config=config,npart=npart)
@@ -112,6 +114,8 @@ if __name__ == "__main__":
                                      period=1,save_weights_only=True)
         callbacks.append(checkpoint)
 
+
+    start_time = time.time()
     print('training_data', training_data) # training_data <BatchDataset element_spec=(TensorSpec(shape=(None, 200, 4), dtype=tf.float32, name=None), TensorSpec(shape=(None, 2), dtype=tf.float32, name=None), TensorSpec(shape=(None, 2), dtype=tf.float32, name=None), TensorSpec(shape=(None, 200, 1), dtype=tf.float32, name=None))>
 
     history = model.fit(
@@ -124,3 +128,5 @@ if __name__ == "__main__":
         verbose=1 if hvd.rank()==0 else 0,
         #steps_per_epoch=1,
     )
+    
+    print("--- %s seconds ---" % (time.time() - start_time))

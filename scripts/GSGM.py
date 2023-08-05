@@ -20,6 +20,7 @@ class GSGM(keras.Model):
         if config is None:
             raise ValueError("Config file not given")
 
+
         self.activation = layers.LeakyReLU(alpha=0.01)
         #self.activation = swish
         # self.activation = relu
@@ -94,7 +95,7 @@ class GSGM(keras.Model):
             num_feat=self.num_feat,
             time_embedding=graph_conditional,
             num_heads=1,
-            num_transformer = 8,
+            num_transformer = 8, #nominal 8
             projection_dim = 64,
             mask = inputs_mask,
         )
@@ -125,7 +126,7 @@ class GSGM(keras.Model):
             cluster_conditional, # time_embedding
             num_embed=self.num_embed, # num_embed
             num_layer = 5,
-            mlp_dim= 512,
+            mlp_dim= 128,
         )
         '''
         def Resnet(
@@ -141,6 +142,7 @@ class GSGM(keras.Model):
         
         # cluster = (None, 2){ClusterSum, N_Hits} , (None, 64){time embedding_attaches to each particle differently} , inputs_cond = (None, 2) {Pgen, Theta}.
         self.model_cluster = keras.Model(inputs=[inputs_cluster,inputs_time,inputs_cond],outputs=outputs)
+
         # output = (None, 2)
         # # This is used to calculate score (As score dim should be similar to input image dimmension)
         # self.model_cluster([perturbed_x, random_t,cond])
@@ -151,11 +153,15 @@ class GSGM(keras.Model):
         print(self.model_part)
         print(self.model_cluster)
 
-
         self.ema_cluster = keras.models.clone_model(self.model_cluster)
         self.ema_part = keras.models.clone_model(self.model_part)
         
-        
+        print("\n\n\n =========== Particle Model Summary =========== ")
+        self.model_part.summary()
+
+        print("\n\n\n =========== Cluster Model Summary =========== ")
+        self.model_cluster.summary()
+
     @property
     def metrics(self):
         """List of the model's metrics.
