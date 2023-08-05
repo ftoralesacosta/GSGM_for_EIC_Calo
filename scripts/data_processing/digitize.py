@@ -1,103 +1,47 @@
 import h5py
 import numpy as np
 from tqdm import tqdm
-
-
-def get_bin_edges(g4_cell_data):
-
-    centers = np.unique(g4_cell_data)
-
-    # Don't want 0 as first bin (important for ZXY)
-    if (centers[0] == 0):
-        centers = centers[1:]
-
-    width = np.round(centers[1] - centers[0],2)
-
-    edges = centers - width/2
-    max_edge = centers[-1] + width/2
-    edges = (np.append(edges,max_edge))
-    
-    return centers, edges
-
-
-def get_bin_width(centers):
-
-    # Assumes fixed-width binning, avoids [0] edgecase
-    width = np.round(centers[2] - centers[1],2)
-    
-    return width
-
-
-def get_bin_dict(geant4_name, var_str, nevts = 100_000):
-
-    bin_dict = {}
-
-    with h5py.File(geant4_name, 'r') as g4:
-
-        for var in range(1,4): #Skips E, should be cont.
-
-            g4_data = g4['hcal_cells'][:nevts,:,var]
-
-            centers, edges = get_bin_edges(g4_data)
-            width = get_bin_width(centers) # single float
-        
-            bin_dict[f"centers{var_str[var]}"] = centers
-            bin_dict[f"edges{var_str[var]}"] = edges 
-            bin_dict[f"width{var_str[var]}"] = width 
-
-        bin_dict[f"widthE"] = 2e-5 #20keV fake width, for smear.py
-
-        print("\nL35: Dictionary Keys = ",bin_dict.keys())
-
-    return bin_dict
-
-
-def get_digits_dict(continuous_file, dset_name, bin_dict):
-
-    digit_dict = {}
-
-    for var in range(1,4):
-        continuous_data = continuous_file[dset_name][:,:,var]
-        digits = np.digitize(continuous_data,bin_dict[f"edges{var_str[var]}"])
-        print("Sample Bin # ",var_str[var],": ",digits[100,:10])
-        digit_dict[f"digits{var_str[var]}"] = digits - 1  # -1 for 0th index
-
-    return digit_dict
-
-
-#  ======= MAIN ======
+from binning_utils import *
 
 # Start with a naturally discrete, G4 Dataset
 geant4_name = "../improvedMIP_200cells_FPCD.hdf5"
 
 # Dataset Names
-smeared_G4 = False
+smeared_G4 = True
+voxel_factor = 5
 
 if (smeared_G4):
 
     dset_name = 'hcal_cells' #for smeared G4 data, not for GSGM
     cluster_name = "cluster"
-    discrete_name = "../G4_Discrete.h5"
-    continuous_name = "../newMIP_smeared_20keV_200cells_FPCD.hdf5"
+    # discrete_name = "../G4_Discrete.h5"
+    discrete_name = f"../G4_{voxel_factor}x{voxel_factor}_Discrete.h5"
+    continuous_name = "../G4_smeared.h5"
 
 else:
 
     dset_name = 'cell_features'
     cluster_name = 'cluster_features'
-    discrete_name = "../GSGM_Discrete.h5"
+    # discrete_name = "../GSGM_Discrete.h5"
+    discrete_name = f"../GSGM_{voxel_factor}x{voxel_factor}_Discrete.h5"
     continuous_name = "../GSGM.h5"
 
 
-var_str = ["E","X","Y","Z"]
 
 # Get Cell-Binning from Discrete G4
-bin_dict = get_bin_dict(geant4_name, var_str)
+bin_dict = get_bin_dict(geant4_name)
+
+if voxel_factor != 1:
+    voxel_binning(bin_dict, voxel_factor)
+
 
 #Load the contituous file you want digitized
 continuous_file = h5py.File(continuous_name, "r")
 
+
 # Get what bin each datum belongs in
 digit_dict = get_digits_dict(continuous_file, dset_name, bin_dict)
+
 
 #Copy the structure of the continuous File
 nevents = np.shape(continuous_file[dset_name])[0]
@@ -105,15 +49,14 @@ ncells = np.shape(continuous_file[dset_name])[1]
 nvar = np.shape(continuous_file[dset_name])[2]
 ncluster_var = np.shape(continuous_file[cluster_name])[1]
 
-# nevents = 10_000
-# ncells = 200
-# nvar = 4
-# ncluster_var = 2
-
 chunk_size = 100
 
 # Testing
-# discrete_name = "TEST_PY_GSGM_Discrete.h5"
+discrete_name = "../G4_5x5_10kDiscrete.h5"
+nevents = 10_000
+
+
+print(f"Will write to {discrete_name}")
 
 # create empty data set
 with h5py.File(discrete_name, 'w') as newfile:
@@ -127,10 +70,10 @@ with h5py.File(discrete_name, 'w') as newfile:
     cluster_dset = newfile.create_dataset(cluster_name, 
                                           data=continuous_file[cluster_name])
     
-    dset[:,:,0] = continuous_file[dset_name][:,:,0] # Just copy E
+    dset[:,:,0] = continuous_file[dset_name][:nevents,:,0] # Just copy E
 
     if (smeared_G4):
-        dset[:,:,-1] = continuous_file[dset_name][:,:,-1]
+        dset[:,:,-1] = continuous_file[dset_name][:nevents,:,-1]
         # Copy MASK in G4
 
     for var in range(1,4):
@@ -141,7 +84,7 @@ with h5py.File(discrete_name, 'w') as newfile:
 
 
         # Load the data to digitize
-        continuous_data = continuous_file[dset_name][:,:,var]
+        continuous_data = continuous_file[dset_name][:nevents,:,var]
 
         # Set data to bin center
         for evt in tqdm(range(nevents)):

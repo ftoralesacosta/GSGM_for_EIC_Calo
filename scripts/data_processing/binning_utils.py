@@ -41,6 +41,7 @@ def get_bin_dict(geant4_name, nevts = 100_000):
             centers, edges, width = get_bin_edges(g4_data)
 
             # The MASK of 0 should not be included for Z
+            # Z ranges from 3800 to 5000 cm for the LFHCAL
             if var_str[var] == "Z":
                 if centers[0] == 0:
                     centers = np.delete(centers,0)
@@ -69,3 +70,22 @@ def get_digits_dict(continuous_file, dset_name, bin_dict):
         digit_dict[f"digits{var_str[var]}"] = digits - 1  # -1 for 0th index
 
     return digit_dict
+
+
+def voxel_binning(bins, voxel_factor):
+    # Just reduces binning by voxel_factor
+
+    start = int(voxel_factor/2) #first center
+
+    for var in var_str:
+
+        if var == "E":
+            continue
+        
+        bins[f"centers{var}"] = bins[f"centers{var}"][start::voxel_factor]
+        bins[f"edges{var}"] = bins[f"edges{var}"][::voxel_factor]
+        # print(len(bins[f"centers{var}"]))
+        # print(var,bins[f"centers{var}"])
+        # print(var,bins[f"edges{var}"])
+        
+    # pass dict by reference, so no need to return new dict
