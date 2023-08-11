@@ -359,14 +359,14 @@ class GSGM(keras.Model):
                                  const_shape = self.shape,
                                  mask=tf.convert_to_tensor(mask, dtype=tf.float32)).numpy()
 
-        print('parts',parts) # (5,200,4)
-        print(parts.shape) # (20, 200, 4)
-        print(parts*mask)
-        exit()
+        #print('parts',parts) # (5,200,4)
+        #print(parts.shape) # (20, 200, 4)
+        #print(parts*mask)
         
         end = time.time()
         print("Sampling Particles in {} Events ({} Seconds)".format(cond.shape[0],end - start))
-        return parts*mask,cluster_info
+        # return parts, instead of parts*mask
+        return parts,cluster_info
 
 
     @tf.function
