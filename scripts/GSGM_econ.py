@@ -4,8 +4,8 @@ from tensorflow import keras
 from tensorflow.keras import layers, Input
 import time
 #import horovod.tensorflow.keras as hvd
-import utils_econ_2
-from deepsets import DeepSetsAtt, Resnet
+import utils_econ
+from deepsets_econ import DeepSetsAtt, Resnet
 from tensorflow.keras.activations import swish, relu
 
 # tf and friends
